@@ -207,25 +207,3 @@ get_hat <- function (.station, .units = 'metric',
 
   return(ds$HAT - base_datum)
 }
-
-#' Retrieve the tidal epoch
-#'
-#' @param .station
-#'
-#' @return A named list of two integers, representing the starting and ending
-#'         years of the official tidal epoch.
-#'
-#' @family Datum Access
-#' @export
-#'
-#' @examples
-#' Retrieve HAT for Portland, Maine
-#' portland_id <- 8418150
-#' get_epoch(portland_id)   # c(start = 1983, end = 2001)
-get_epoch <- function(.station){
-  ds <-.call_datums(.station, .units = 'metric')
-  epoch = as.numeric(strsplit(ds$epoch, '-')[[1]])
-  names(epoch) <- c('start', 'end')
-
-  return(epoch)
-}
