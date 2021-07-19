@@ -1,0 +1,362 @@
+---
+title: "Accessing Tidal Datums"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Accessing Tidal Datums}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(tidyverse)
+library(SLRSIM)
+```
+
+# Introduction
+The SLRSIM package includes utility functions for accessing NOAA data about 
+tidal monitoring stations. This vignette describes what metadata is directly 
+exposed, and how to gather further metadata about tidal monitoring stations.
+
+NOaa's tidal monitoting stations are known formally as "Water Level Observation 
+Network Stations."
+
+These functions are used by several functions in the package to set up analysis
+of historical data and future flood risk assessments, but their primary value to 
+users will be to gather descriptive information about each tidal station without
+requiring manual search of related NOAA web pages.
+
+## Accessing Datums
+We access information on station datums through the NOAA metadata API.
+Information on the NOAA APIs is available here:
+https://tidesandcurrents.noaa.gov/web_services_info.html.
+
+Essentially all metadata accessed via these functions is also accessible
+manually from tidal station informational web pages.  The URL for each tidal 
+station's home page is readily accessed through a NOAA web page, if you know the 
+station ID of the station of interest.  Teh for mof the URL is as follows: 
+
+```
+https://tidesandcurrents.noaa.gov/noaatidepredictions.html?XXXXXXX
+```
+Where XXXXXXX represent the unique seven digit numerical code for the station of
+interest.
+
+These functions depend on details of the NOAA tidal data APIs, and so are not 
+available for many stations outside the US.  NOAA does provide access to 
+data from some international stations through the APIs, but these functions have 
+not been tested against international stations.
+
+## A Introduction to Tidal Datums
+The term tidal "datum" is often used somewhat imprecisely, so can be confusing 
+for people who first access NOAA tidal data.  Here we offer an overview of 
+important concepts, as relevant for tidal analysis. This is a complex topic,
+and  we provide only a brief overview.  A thorough understanding of 
+these topics is essential in several other fields, especially for geographical
+information systems and high precision use of GPS technologies.
+
+A datum is an elevation that serves as the "zero value" for elevation (or depth)
+measurements. Elevations and depths can be expressed relative to a surprisingly
+large number of different conceptual zero values, depending on purpose. 
+
+For example, mariners are usually interested in not running aground, so
+navigation charts usually show depths relative to a "worst case scenario" of low
+tide. The tidal datum used for charts, therefore is often "mean lower low
+water", usually abbreviated as "MLLW". 
+
+Other extreme tidal values are often of interest for other purposes, especially
+design of coastal infrastructure, leading to many other possible "zero" 
+elevations, including mean low water, mean high water, mean higher high water,
+and the highest astronomical tide.
+
+When move away from the immediate coast, we  talk about the height of a
+mountain peak in terms of elevation "above sea level".  But what exactly do we
+mean by sea level?  The elevation of the surface of the ocean varies. So when we
+speak about "sea level", do we mean high tide?  low tide?  some sort of average
+tide? This concept leads to several other common tidal datums, including "mean
+sea level" and "mean tide level".
+
+Another way to think about "sea level" is that it represents a  gravitational
+equipotential surface encircling the globe. (Originally this concept came from
+surveying practice, where relative elevations were determined based on
+"leveling".) But even here lie layers of complexity.  Because the globe is not
+spherical (it is closer to an oblate spheroid), the globe's equipotential
+surface is also not expected to be spherical.  So any "equipotential surface"
+needs to be based on a model of the shape of the earth.  Now we also know
+that variations in the density of the materials in the earth's crust lead to
+measurable differences in the strength of earth's gravitational field, so a true
+equipotential surface wiggles compared to any smooth geometric model of the
+earth.  So, there are a lot of other ways people define the "zero elevation" at
+any given point on the globe, depending on which model of the shape of the
+earth or its equipotential surface they chose to use.  This kind of logic
+leads t oa variety of different elevation reference points, including the 
+widely used "NAVD-88", which stands for the National Vertical Datum of 1988.  
+
+More generally, in a surveying, mapping or  GIS context, maps rely on defined
+three dimensional coordinate systems, usually tied to a specific datum. Each 
+selected coordinate system thus has an implied system of determining elevation. 
+Systems in use vary tremendously. GPS and Google Map use WGS 1984 (for the
+"World Geodetic System of 1984).  Many map products derived from USGS
+topographic maps originally used "Universal Transverse Mercator" projections.
+The implied coordinate systems vary based on the date the map was published,
+often either NAD 27 (for older maps) or NAD 83 (for more recent maps).
+
+Luckily, most of this complexity is not essential for tidal analysis, as 
+only local phenomena are of interest.   The most important idea is that 
+elevations can be expressed in many different ways, and yo uneed to be able to 
+translate correctly among them.
+
+For a deeper discussion of these ideas, se
+https://tidesandcurrents.noaa.gov/datum_options.html
+
+## Tidal Statistics
+NOAA publishes a variety of statistics about local tidal regimes along with
+information on the tidal datum, which can lead to some confusion. Tidal 
+statistics are generally calculated based on the same data and models as the 
+tidal datums (*sensu stricto*) but they are not really datums at all. 
+Important tidal statistics include:
+*  Measures of the tidal range,  
+*  Measures of the difference in height between the two successive high
+   or two successive low tides (for semi-diurnal tides)
+*  The relative timing of local high and low tides.
+
+The package  provide access to some of these tidal statistics as well, since the 
+come "for free" once you access NOAA's on-line tidal metadata.
+
+## Tidal Stations
+NOAA maintains numerous primary tidal monitoring stations around
+the  coast of the U.S. At these stations, NOAA has collected tidal elevation 
+data, usually every six minutes (10 times an hour) for periods in excess of 19
+years (one "Tidal Epoch").  This allows formal development of the complex 
+harmonic models that generate astronomical tidal predictions.
+
+NOAA also provides tidal predictions for secondary and tertiary stations, based 
+on shorter-term data collections. The data collection at the subsidiary 
+stations are aimed principally at understanding how tidal dynamics differ 
+from those observed at nearby primary station, allowing local corrections.
+
+Most analyses implemented in this package require the long-term tidal data from 
+primary stations. Some metadata may be available for secondary and tertiary
+stations, but these functions have not been tested against subsidiary stations.
+
+Many functions in this package, especially those retrieving data and metadata
+from NOAA APIs, require identification of a target tidal station. In the
+US, NOAA primary tidal stations are all given a unique seven digit integer code
+(as are most or all of the secondary and tertiary locations).
+
+NOAA primary tidal stations that provide data sufficient to conduct the
+analyses included here can be looked up by list or map interface here:
+
+https://tidesandcurrents.noaa.gov/stations.html?type=Water+Levels
+
+# Basic Access Function
+We demonstrate `get_datums()` the basic tidal datums access function, by 
+retrieving data for the Portland, Maine station. The call returns a named list
+of available datum and tidal statistics.  This contents of the list may vary 
+for other tidal stations.  We unlist the list here to simplify the display.
+```{r}
+portland_id <- 8418150 
+portland_datums <- get_datums(portland_id)
+unlist(portland_datums)
+```
+
+The API provides limited descriptions of the meanings of these names, reproduced
+here for convenience.
+
+|Abbreviation   | Description  
+|---------------|------------------------------------------| 
+|STND           |	Station Datum                            | 
+|MHHW           |	Mean Higher-High Water                   | 
+|MHW            |	Mean High Water		                       | 
+|DTL	          | Mean Diurnal Tide Level	                 | 
+|MTL            |	Mean Tide Level	                         | 
+|MSL            |	Mean Sea Level	                         | 
+|MLW	          | Mean Low Water		                       | 
+|MLLW	          | Mean Lower-Low Water		                 | 
+|GT	            | Great Diurnal Range	                     | 
+|MN	            | Mean Range of Tide		                   | 
+|DHQ	          | Mean Diurnal High Water Inequality       | 
+|DLQ            |	Mean Diurnal Low Water Inequality	       | 
+|HWI	          | Greenwich High Water Interval (in hours) | 
+|LWI	          | Greenwich Low Water Interval (in hours)	 | 
+|NAVD88	        | North American Vertical Datum of 1988    | 
+|---------------|------------------------------------------| 
+
+Note "STND", the "Station Datum".  This is an arbitrary zero point defined for
+each station.  It's primary value is that all observations and datums can be 
+expressed as positive values relative to the station datum.
+
+Usually, userS (and our functions) will need only one or two of these at a time.
+Often the useage pattern is to extract the full list oF datums and extract the
+values needed using typical R extractor functions. You will normally extract
+these components with `$`, but sometimes `[[]]` is conveient, especiallty in
+a programming context.
+
+```{r}
+portland_datums$MLLW
+portland_datums$MSL
+portland_datums[['MHW']]
+portland_datums[['NAVD88']]
+```
+### Datum Conversions
+It is often convenient to express one datum in terms of another, or convert data 
+from one datum to another. With the datum information provided by `get_datums()`,
+that is just a matter of subtraction.
+
+It's easy to get confused converting elevations and depths. Just think
+carefully about whether a converted value should be lower or higher than before
+the conversion, and yo ushuld get the sign of the conversion right.
+
+#### Mythical Tidal Cross Section Data
+In supporting CBEP's work on tidal marsh restoration, We often collect data on
+the tidal channel cross sections in salt marshes. Channel morphology often
+evolves after tidal restoration, and tracking the shape of the channel
+helps us understand how the marsh is responding to altered hydrology.
+
+We usually collect that data in NADV88, because that is usually the reference
+frame of any nearby benchmarks, but we want to understand channel dynamics in
+terms of tidal processes, so we may want to compare those observations to MSL or
+MLLW.
+
+Typical cross section data looks something like this, with elevations expressed
+in NAVD 1988):
+```{r}
+xsect_data <- tribble(~Distance, ~Elevation,
+        10, 1.25,
+        11, 1.26,
+        12, 1.24,
+        13, 1.22,
+        14, 1.20,
+        15, 1.1,
+        16, 1.0,
+        16.5, - .75,
+        17, -.85,
+        17.5, -.75,
+        18,   -0.65,
+        18.5, -0.1,
+        19,  0.5,
+        20, 1,
+        21, 1.2,
+        22, 1.25
+        )
+```
+
+```{r fig.height = 2.5, fi.width = 5}
+plt = ggplot(xsect_data, aes(x = Distance, y = Elevation)) + 
+  geom_line() +
+  coord_equal()
+
+plt +
+   geom_hline(yintercept = 0 , lty = 2) +
+  annotate('text', label = 'NAVD88', x = 11, y = 0.3, size = 3)
+```
+
+For tidal interpretation, we reexpress those tidal heights in comparison to 
+tidal datums.
+
+```{r}
+MHW_as_NAVD88 <- portland_datums$MHW - portland_datums$NAVD88
+MLLW_as_NAVD88 <- portland_datums$MLLW - portland_datums$NAVD88
+```
+
+
+```{r fig.height = 2.5, fi.width = 5}
+plt + 
+  geom_hline(yintercept = MHW_as_NAVD88 , lty = 2) +
+  annotate('text', label = 'MHW', x = 11, y = MHW_as_NAVD88 + 0.3, size =3) +
+  geom_hline(yintercept = MLLW_as_NAVD88 , lty = 3) +
+  annotate('text', label = 'MLLW', x = 11, y = MLLW_as_NAVD88 + 0.3, size = 3)
+```
+Maine tidal marshes often show a high marsh plateau that corresponds roughly to
+mean high water.  This graphic reveals how channel elevations climb to that
+marsh plateau gradually on either side of the channel.
+
+It also shows that the bottom of the tidal channel -- at this location -- lies
+well above the elevation of mean lower low water, a common feature of real tidal
+channels.  Tidal marsh channels evolve via sediment transport, just as
+freshwater streams do, with sediment transported by flowing water. Mean Lower
+Low Water provides a "base elevation" for evolution of those channels, so most
+of the channel is "uphill" of MLLW, allowing  water (and desiment) to flow
+downstream to the ocean.
+
+# Specialized Extractor Functions
+For a variety of reasons, we often want to pull a particular datum, expressed in 
+terms of another datum, `SLRSIM` includes a few specialized extractor functions 
+for this purpose.
+
+These functions issue a call to the NOAA API, and so, to be polite, they should 
+not be placed inside a loop, where they will access the API repeatedly to 
+extract the same information.  Extract the data you need once, before any
+loops.
+
+(In future, we may create a hidden internal data structure to save results of
+the initial call to the NOAA API to avoid unnecessary duplicate calls).
+
+The `SLRSIM` package often uses the concept of the "Highest Astronomical Tide"
+to establish a rational basis for default local tidal flooding level.
+The HAT value represents the highest predicted tide of a 19 year tidal epoch.
+As such, it is a rare, but expected event. Most infrastructure is built (either
+due to formal analysis or in response to prior flooding) to not flood (much) at 
+the HAT elevation.
+
+## The `get_hat()` Function
+A function for extracting HAT is therefore convenient.
+```{r}
+portland_id <- 8418150 
+get_hat(portland_id)                   # 2.134, with a warning
+get_hat(portland_id, .base = 'MSL')    # 2.134, no warning
+get_hat(portland_id, .base = 'MLLW')   # 3.64
+```
+
+# The Tidal Epoch
+The astronomical alignment of earth, moon, and sun that generate the tides 
+repeats (with good precision) every nineteen years.  Tidal forecasts, therefore,
+are based on a nineteen year data set.  That data set is analyzed to
+extract "harmonic constituents" used in turn to generate predictions of future
+tides.
+
+The nineteen year period over which data was collected to generate the current 
+tidal forecasts is known as the "tidal epoch."  For most NOAA tide 
+stations, the current tidal epoch ran from 1983 through 2001. 
+
+
+## The `get_epoch()` Function
+The `getepoch()` function accesses the NOAA API, and extracts the tidal epoch
+from the data structure returned by that call. As it also is based on another
+API call, it should not be called repeatedly.  Call it once, and save the data
+you need.
+
+
+```{r}
+portland_epoch <- get_epoch(portland_id)
+portland_epoch
+```
+
+An That is decidedly problematic in an era of climate change and rising seas, as
+predictions are now "off" buy however much sea level rise has occurred since 
+2001.
+
+For a few stations with "anomalously high" sea level rise rates -- especially in
+the western Gulf of Mexico and Alaska, a modified procedure has been used, that
+corrects predictions based on more recent observations, usually from 2012 
+through 2016.
+
+Grand Isle, Louisiana is one of the locations where forecasts have been
+corrected.  When you place an API call to the NOAA metadata, you are given the 
+period over which data was collected for the correction, not for the full
+19 year period 
+```{r}
+grand_isle_id =  8761724
+grand_isle_epoch <- get_epoch(grand_isle_id)
+grand_isle_epoch
+```
+
+NOAA has announced that a new tidal epoch (based on data from 2002 - 2020) will be rolled 
+out for tide predictions and calculation of tidal datums, with release expected 
+some time in 2025.

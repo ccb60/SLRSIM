@@ -3,5 +3,6 @@
 export(get_datums)
 export(get_epoch)
 export(get_hat)
+export(get_sl_trend)
 export(slr_slope)
 importFrom(magrittr,"%>%")
