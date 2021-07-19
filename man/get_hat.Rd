@@ -19,7 +19,8 @@ https://tidesandcurrents.noaa.gov/map/index.html?type=TidePredictions.}
 
 \item{.units}{Should values be returned in metric (default) or english units?}
 
-\item{.base}{The base datum against which to reference HAT. Defaults to MSL.}
+\item{.base}{The base datum against which to reference HAT. Defaults to MSL,
+with a warning.}
 }
 \value{
 A decimal value, representing the HAT value at the selected station.

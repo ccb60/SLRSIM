@@ -16,6 +16,10 @@
 #' Original source included NOAA generalized least squares regression results,
 #' not needed here.
 #'
+#' Seasonally adjusted data used by NOAA for analysis of sea level trends
+#' is not available through the NOAA tides APIs, but can be accessed manually
+#' via the web page associated with each station ID.
+#'
 #' @format A data frame with 868 rows and 5 variables:
 #' \describe{
 #'   \item{Year}{Year of mean sea level observation}

@@ -17,8 +17,9 @@ years of the official tidal epoch.
 Retrieve the tidal epoch
 }
 \examples{
+Retrieve HAT for Portland, Maine
 portland_id <- 8418150
-get_epoch(portland_id)
+get_epoch(portland_id)   # c(start = 1983, end = 2001)
 }
 \seealso{
 Other Datum Access: 
