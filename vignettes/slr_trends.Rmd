@@ -1,0 +1,162 @@
+---
+title: "Assessing Trends in Sea Level"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Assessing Trends in Sea Level}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:10px;right:50px;" />
+
+
+```{r setup}
+library(tidyverse)
+library(nlme)
+library(SLRSIM)
+```
+
+# Import Data
+Our primary source data is based on NOAA's analysis of sea level trends.  The
+description on the source web site
+(https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000)
+says the following, so this is apparently NOT raw data.
+
+> "The plot shows the monthly mean sea level without the regular seasonal
+fluctuations due to coastal ocean temperatures, salinities, winds,
+atmospheric pressures, and ocean currents. ... The plotted values are relative
+to the most recent Mean Sea Level datum established by CO-OPS."
+
+```{r load_data}
+prov_meantrend  <- prov_meantrend %>%
+  mutate(before_gap = MidDate < as.Date('1955-01-01'))
+```
+
+# Looking up NOAA' Long Term Linear Trend Estimate
+We first demonstrate use a linear model analysis to calculate the linear trend 
+as reported by NOAA on the source web page at 
+https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000.
+
+At that site, NOAA reports NOAA reports a value of 2.40 +/- 0.23 mm/year.  While
+the meaning of the range given is not defined, it appears to be a 95% confidence 
+interval.
+
+We can extract NOAA's estimate and its standard error with `get_sl_trend()`.
+Note that these values are rounded.
+```{r}
+providence_id = 8454000
+sl_t <- get_sl_trend(providence_id)
+sl_t$trend
+sl_t$trendError
+```
+NOAA reports a value of 2.40 +/- 0.23 mm/year.
+
+#  A Generalized Linear Model Analysi
+```{r slr_gls}
+the_gls <- gls(MSL~MidDate, data=prov_meantrend,
+               correlation = corAR1(), method = 'ML')
+(s <- summary(the_gls))
+```
+We need to convert units from meters and days to millimeters and years
+```{r}
+s$tTable[2,1] * 365.25 * 1000
+s$tTable[2,2] * 365.25 * 1000
+
+```
+
+So, we get 2.41 +/- 0.12.  If NOAA rounds the estimate onl to tenths of 
+millimeters, our results match.  otherwise, they are ecver so slightly different.
+
+
+# The `slr_slope()` Function
+The SLR_slope function is a convenience function that wraps up the linear model 
+just presented and spits out model coefficients without requiring you to build
+your own model.
+
+{TODO:  Add code to make this print out in a nicer way, whether by rounding or 
+by creating an s3 class and overriding the print method.}
+
+```{r}
+slope_info <- slr_slope(prov_meantrend, MSL, MidDate)
+round(slope_info,4)
+```
+
+Setting t_fit = TRUE makes the model run much more slowly, as it is fitting an
+autoregressive model based on the time coordinate, rather than just the sequence
+of observations.  The resulting fit is (here) ever so slightly different.  This 
+version will handle unevenly spaced observations appropriatley, and may be 
+preferred if there are many missing values in the source data.
+
+```{r cache = TRUE, eval = FALSE}
+slope_info <- slr_slope(prov_meantrend, MSL, MidDate, t_fit = TRUE)
+round(slope_info,4)
+```
+
+# Add Example using "Raw" data
+
+
+# Has Sea Level Rise Increased Recently?
+A frequent question raised in analysis of sea level records is whether the rate
+of sea level rise is increasing, as predicted by numerous climate models over
+the years. This is a simple question that is rather more complex to answer
+statistically than it at first appears.
+
+The simplest approach we take to checking this idea is to fit a piece-wise
+linear model to historic water level rise data.  The user can specify a 
+"breakpoint", "cutpoint" or "knot" by giving a parameter that specifies what 
+portion of the data is to be considered the "recent" portion of the data.
+
+This analysis is embodied in the function `slr_change()`.
+
+The piecewise linear model fits the data with two linear segments that join at a
+knot.  The easiest way to specify a knot is by the number of years in the
+"recent" period, but the knot can also bespecified by a time interval (class
+"difftime") or an integer specifying the number of observations to include in
+the "Recent" period.
+
+```{r}
+s <- slr_change(prov_meantrend, MSL, MidDate, .span = 20, by_year = TRUE)
+s
+```
+
+# Showing Model Results
+It is possible, and sometimes helpful, to retan the model results for further
+examination or processing. Because R model objects encapsulate the source data, 
+they are often quite large, so `we`slr_change()` does not return the fitted 
+model object ubnless specifically requested.
+
+One circumstance in which the model object is useful is if you want to prepare
+a graphic showing the piecewise linear model.
+
+First, we re-ru the model indicating that we want to fitted model object.
+We then and extract the model component, and draw a graphic.
+```{r}
+s <- slr_change(prov_meantrend, MSL, MidDate, .span = 20, 
+            by_year = TRUE, retain_model = TRUE)
+```
+```{r}
+piecewise_gls <- s$model
+```
+
+
+## Visualizing the Models
+```{r  visualize_models, plot_slr_models, fig.height = 7, fig.width = 5}
+ggplot(prov_meantrend, aes(MidDate, MSL, group = before_gap)) +
+  geom_line(color='grey20', alpha = 0.25 ) +
+  geom_line(aes(x = MidDate, y = predict(the_gls)),
+            color = 'black', lwd = 1) +
+  geom_line(aes(x = MidDate, y = predict(piecewise_gls)),
+            color = 'green4', lwd = 1) +
+  xlab('Date') + 
+  ylab('Monthly Mean Tide Level (m, MSL)')
+```
+
