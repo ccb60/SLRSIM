@@ -34,7 +34,6 @@
 #'
 #' For a more robust approach (with lower statistical power, but deeper
 #' justification), see the function `all_sr_change()`
-
 #'
 #' @param .data Source data frame for data.  Use NULL if no data frame is used
 #'        and all data is passed from the enclosing environment.
@@ -53,17 +52,39 @@
 #'        `.span` is an integer, it is interpreted as the number of records to
 #'        include in the 'recent' period.
 #' @param by_year Boolean indicating whether the results should be scaled to
-#'        annual values by multiplying by 365.25. If `.dt` is not a Date, this
+#'        annual values by multiplying by 365.2422. If `.dt` is not a Date, this
 #'         is ignored, and no scaling is conducted.
-#' @return
+#' @param retain_model  Boolean.  If `TRUE`, the piecewise linear model is
+#'        returned via the list's 'model' slot.
 #'
-#' @family rate changes
+#' @return a list, with the following components:
+#' \describe{
+#' \item{Sample}{Sample size on which model is based}
+#' \item{L.Ratio}{likelihood ratio comparing the piecewise linear model to a
+#'       simple linear model.}
+#' \item{p-value}{the p-value (by ANOVA) comparing the two models.}
+#' \item{delta-AIC}{Change in AIC between the two models.  A value less than
+#'       about -2 is evidence that the piecewise model would outperform the
+#'        strict linear model for "predicting" past sea levels.}
+#' \item{slope_old}{The estimated slope of changes in sea level prior to the
+#'       "recent" period specified via the .span parameter.}
+#' \item{slope_old_err}{Standard error of that slope.}
+#' \item{slope_recent}{Estimated slope during the "Recent" period,  This is
+#'       calculated as the sum of two model parameters, the overall slope and
+#'       a "recent" correction.}
+#' \item{slope_recent_err}{Standard error of the recent slope.  This is
+#'       calculated using the formula for the variance for the sum of two
+#'       uncorrelated random variables, treating the overall slope and
+#'       recent slope correction as uncorrelated.}
+#' \item{model}{The underlying piecewise GLS model, returned only if
+#'       retain_model == TRUE}
+#' }
 #'
+#' @family sea level rate functions
 #' @export
 #'
 #' @examples
 #'
-
 slr_change = function(.data, .sl, .dt, .span = 20,
                      by_year = TRUE, retain_model = FALSE) {
 
@@ -92,19 +113,23 @@ slr_change = function(.data, .sl, .dt, .span = 20,
   have_dates <- inherits(the_date, 'Date') || inherits(the_date, 'POSIXt')
   have_diff <- ! by_year & inherits(.span, 'difftime')
 
-
+  # Remember that `is.integer()` checks for the storage mode, not whether the
+  # parameter passed is a LOGICAL integer, which can be stored in a double.
+  # We check for integer values by difference.  The tolerance here is one in
+  # one thousand, which is below one day out of the year, but above the accuracy
+  # of double precision values.
   if(by_year) {
     if (! have_dates) {
-    stop('by_years == TRUE requires .dt to be a Date or POSIX time.')
+    stop('by_year == TRUE requires .dt to be a Date or POSIX time.')
     }
-    else if(! .span - as.integer(.span) < 0.01) {
-      stop('If by_years == TRUE,  .span must be an integer giving the number of years.')
+    else if(! abs(.span - as.integer(.span)) < 0.001) {
+      stop('If by_year == TRUE,  .span must be an integer giving the number of years.')
     }
   }
 
   if(! by_year) {
-    if (! .span - as.integer(.span) < 0.01 || inherits(.span, 'difftime')) {
-      stop('If by_years == FALSE,  .span must be a  a difftime object, or',
+    if (! abs(.span - as.integer(.span)) < 0.001 || inherits(.span, 'difftime')) {
+      stop('If by_year == FALSE,  .span must be a  a difftime object, or',
            'an integer giving a number of observations.')
     }
     if(have_diff && ! inherits(the_date, c('Date', 'POSIXt'))) {
@@ -113,8 +138,8 @@ slr_change = function(.data, .sl, .dt, .span = 20,
     }
   }
 
-  # Reorder the data by the time stamp.  Only essential for by_year = =FALSE and
-  # integer values .span, but does little harm otherwise.
+  # Reorder the data by the time stamp.  Only essential for by_year == FALSE and
+  # integer valued .span, but does little harm otherwise.
   sl <- sl[order(the_date)]
   the_date <- the_date[order(the_date)]
 
@@ -134,7 +159,7 @@ slr_change = function(.data, .sl, .dt, .span = 20,
   }
   else{
     is_recent <- logical(length(the_date))
-    cutpoint <- length(the_date) - .span
+    cutpoint <- length(the_date) - round(.span, 0)
     is_recent[1: cutpoint-1] <- FALSE
     is_recent[cutpoint:length(the_date)] <- TRUE
     cutdate <- max(the_date[! is_recent])

@@ -79,7 +79,7 @@
 #' `as.Date(paste(year, month, 15, sep = '-')`.
 #'
 #' By default, slope estimate and standard error are scaled from days (based on
-#' Dates) to (approximate) annual values by multiplying by 365.25. If you pass
+#' Dates) to (approximate) annual values by multiplying by 365.2422. If you pass
 #' a time coordinate that is NOT of class Date, no scaling will be done, and you
 #' you will need to scale the results appropriately. You can turn off scaling to
 #' annual values by passing `by_year = FALSE`.
@@ -101,8 +101,8 @@
 #'        to TRUE is safer if you are uncertain of the sequence of observations
 #'        in the source data, or  significant missing values in your data.
 #' @param by_year Boolean indicating whether the results should be scaled to
-#'        annual values by multiplying by 365.25. If `.dt` is not a Date, this
-#'         is ignored, and no scaling is conducted.
+#'        annual values by multiplying by 365.2422. If `.dt` is not a Date, this
+#'        is ignored, and no scaling is conducted.
 #' @return
 #' A named vector, with the following components (some may be moved to
 #' attributes in the future).
@@ -120,8 +120,7 @@
 #'    \item{stop}{last year included in the data}
 #'}
 #'
-#' @seealso [get_slr_trend()] for direct access to NOAA sea level rise estimates.
-#'
+#'@family sea level rate functions
 #' @export
 #'
 #' @examples
@@ -151,7 +150,7 @@ slr_slope <- function(.data, .sl, .dt,
   # If we got dates, and by_year is TRUE, we want to scale to years, otherwise
   # we apply no scaling, anfd leave that to the user.
   if(inherits(the_date, 'Date') && by_year) {
-    multiplier <- 365.25
+    multiplier <- 365.2422
   }
   else {
     multiplier <- 1

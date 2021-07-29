@@ -18,7 +18,7 @@
 #'
 
 #'
-#' @family Datum Access
+#' @family station information access functions
 #' @export
 #'
 #' @examples

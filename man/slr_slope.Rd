@@ -29,7 +29,7 @@ to TRUE is safer if you are uncertain of the sequence of observations
 in the source data, or  significant missing values in your data.}
 
 \item{by_year}{Boolean indicating whether the results should be scaled to
-annual values by multiplying by 365.25. If \code{.dt} is not a Date, this
+annual values by multiplying by 365.2422. If \code{.dt} is not a Date, this
 is ignored, and no scaling is conducted.}
 }
 \value{
@@ -128,7 +128,7 @@ hood. It is easy to build Dates, either by converting POSIX times with
 \verb{as.Date(paste(year, month, 15, sep = '-')}.
 
 By default, slope estimate and standard error are scaled from days (based on
-Dates) to (approximate) annual values by multiplying by 365.25. If you pass
+Dates) to (approximate) annual values by multiplying by 365.2422. If you pass
 a time coordinate that is NOT of class Date, no scaling will be done, and you
 you will need to scale the results appropriately. You can turn off scaling to
 annual values by passing \code{by_year = FALSE}.
@@ -143,5 +143,9 @@ slr_slope(prov_meantrend, MSL, MidDate)
 slr_slope(prov_meantrend, MSL, MidDate, t_fit = TRUE)
 }
 \seealso{
-\code{\link[=get_slr_trend]{get_slr_trend()}} for direct access to NOAA sea level rise estimates.
+Other sea level rate functions: 
+\code{\link{all_slr_change}()},
+\code{\link{get_sl_trend}()},
+\code{\link{slr_change}()}
 }
+\concept{sea level rate functions}

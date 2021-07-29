@@ -49,3 +49,16 @@ names(sl_list)
 paste(sl_list$trend, '+/-', sl_list$trendError, 'sl_list$units')
 
 }
+\seealso{
+Other sea level rate functions: 
+\code{\link{all_slr_change}()},
+\code{\link{slr_change}()},
+\code{\link{slr_slope}()}
+
+Other station information access functions: 
+\code{\link{get_datums}()},
+\code{\link{get_epoch}()},
+\code{\link{get_hat}()}
+}
+\concept{sea level rate functions}
+\concept{station information access functions}

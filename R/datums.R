@@ -152,7 +152,7 @@
 #' max and min tides are not included here. See the related `get_hat()` function
 #' for access to HAT.
 #'
-#' @family Datum Access
+#' @family station information access functions
 #' @export
 #'
 #' @examples
@@ -180,7 +180,7 @@ get_datums <- function(.station, .units = 'metric'){
 #'        with a warning.
 #'
 #' @return A decimal value, representing the HAT value at the selected station.
-#' @family Datum Access
+#' @family station information access functions
 #' @export
 #'
 #' @examples

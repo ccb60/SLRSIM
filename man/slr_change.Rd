@@ -20,8 +20,11 @@ not an expression. Midpoint dates for a given month can be
 approximated with \verb{as.Date(paste(year, month, 15, sep = '-')}.}
 
 \item{by_year}{Boolean indicating whether the results should be scaled to
-annual values by multiplying by 365.25. If \code{.dt} is not a Date, this
+annual values by multiplying by 365.2422. If \code{.dt} is not a Date, this
 is ignored, and no scaling is conducted.}
+
+\item{retain_model}{Boolean.  If \code{TRUE}, the piecewise linear model is
+returned via the list's 'model' slot.}
 
 \item{.span.}{Span defining the "recent" period for fitting the model.
 integer or difftime object.  Interpretation of .span depends on the
@@ -32,7 +35,28 @@ integer, and is interpreted as the number of years included in the
 include in the 'recent' period.}
 }
 \value{
-
+a list, with the following components:
+\describe{
+\item{Sample}{Sample size on which model is based}
+\item{L.Ratio}{likelihood ratio comparing the piecewise linear model to a
+simple linear model.}
+\item{p-value}{the p-value (by ANOVA) comparing the two models.}
+\item{delta-AIC}{Change in AIC between the two models.  A value less than
+about -2 is evidence that the piecewise model would outperform the
+strict linear model for "predicting" past sea levels.}
+\item{slope_old}{The estimated slope of changes in sea level prior to the
+"recent" period specified via the .span parameter.}
+\item{slope_old_err}{Standard error of that slope.}
+\item{slope_recent}{Estimated slope during the "Recent" period,  This is
+calculated as the sum of two model parameters, the overall slope and
+a "recent" correction.}
+\item{slope_recent_err}{Standard error of the recent slope.  This is
+calculated using the formula for the variance for the sum of two
+uncorrelated random variables, treating the overall slope and
+recent slope correction as uncorrelated.}
+\item{model}{The underlying piecewise GLS model, returned only if
+retain_model == TRUE}
+}
 }
 \description{
 Fit a piecewise linear model to test whether a recent change in
@@ -73,4 +97,10 @@ justification), see the function \code{all_sr_change()}
 \examples{
 
 }
-\concept{rate changes}
+\seealso{
+Other sea level rate functions: 
+\code{\link{all_slr_change}()},
+\code{\link{get_sl_trend}()},
+\code{\link{slr_slope}()}
+}
+\concept{sea level rate functions}

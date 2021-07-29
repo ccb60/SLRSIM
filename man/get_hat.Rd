@@ -36,8 +36,9 @@ get_hat(portland_id, .base = 'MSL')    # 2.134, no warning
 get_hat(portland_id, .base = 'MLLW')   # 3.64
 }
 \seealso{
-Other Datum Access: 
+Other station information access functions: 
 \code{\link{get_datums}()},
-\code{\link{get_epoch}()}
+\code{\link{get_epoch}()},
+\code{\link{get_sl_trend}()}
 }
-\concept{Datum Access}
+\concept{station information access functions}

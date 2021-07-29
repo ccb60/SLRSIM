@@ -30,7 +30,8 @@
 #'   \item{startDate}{Start of period over which trend was calculated.}
 #'   \item{endDate}{End date of period over which trend was caclulated.}
 #' }
-#'
+#' @family sea level rate functions
+#' @family station information access functions
 #' @export
 #'
 #' @examples

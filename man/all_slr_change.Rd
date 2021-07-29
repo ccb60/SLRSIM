@@ -78,7 +78,9 @@ auto-correlated, and this analysis makes no effort to account for that.
 
 }
 \seealso{
-Other rate changes: 
-\code{\link{slr_change}()}
+Other sea level rate functions: 
+\code{\link{get_sl_trend}()},
+\code{\link{slr_change}()},
+\code{\link{slr_slope}()}
 }
-\concept{rate changes}
+\concept{sea level rate functions}

@@ -83,8 +83,9 @@ portland_id <- 8418150
 get_datums(portland_id)
 }
 \seealso{
-Other Datum Access: 
+Other station information access functions: 
 \code{\link{get_epoch}()},
-\code{\link{get_hat}()}
+\code{\link{get_hat}()},
+\code{\link{get_sl_trend}()}
 }
-\concept{Datum Access}
+\concept{station information access functions}

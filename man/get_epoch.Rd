@@ -32,8 +32,9 @@ portland_id <- 8418150
 get_epoch(portland_id)   # c(start = 1983, end = 2001)
 }
 \seealso{
-Other Datum Access: 
+Other station information access functions: 
 \code{\link{get_datums}()},
-\code{\link{get_hat}()}
+\code{\link{get_hat}()},
+\code{\link{get_sl_trend}()}
 }
-\concept{Datum Access}
+\concept{station information access functions}
