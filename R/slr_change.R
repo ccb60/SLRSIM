@@ -35,27 +35,26 @@
 #' For a more robust approach (with lower statistical power, but deeper
 #' justification), see the function `all_sr_change()`
 #'
-#' @param .data Source data frame for data.  Use NULL if no data frame is used
-#'        and all data is passed from the enclosing environment.
-#' @param .sl  The data variable (usually found in the data frame) showing sea
-#'        level or mean sea level.  Must be a named variable, not an
-#'        expression.
-#' @param .dt   Data variable containing corresponding midpoint dates for the
-#'        period of averaging used to calculate .sl. Must be a named variable,
-#'        not an expression. Midpoint dates for a given month can be
-#'        approximated with `as.Date(paste(year, month, 15, sep = '-')`.
-#' @param .span.  Span defining the "recent" period for fitting the model.
+#' @inheritParams slr_slope
+#' @param .span  Span defining the "recent" period for fitting the model.
 #'        integer or difftime object.  Interpretation of .span depends on the
 #'        value of the by_year. If `by_year == TRUE`, `.span` must be an
 #'        integer, and is interpreted as the number of years included in the
 #'        "recent" period for fitting the model.  If `by_year == FALSE`, and
 #'        `.span` is an integer, it is interpreted as the number of records to
 #'        include in the 'recent' period.
-#' @param by_year Boolean indicating whether the results should be scaled to
-#'        annual values by multiplying by 365.2422. If `.dt` is not a Date, this
-#'         is ignored, and no scaling is conducted.
+#' @param .mode one of c('year', 'time', 'count') indicating whether the .span
+#'         is expressed in years, time coordinates, or number of observations.
+#'         If `.mode == 'year'`, slopes are scaled to be expressed on a per year
+#'         basis.  Scaling requires the time coordinate to inherit from R
+#'         `Date` or `POSIXt` objects.  Rates based on `Dates` are converted to
+#'         annual values by multiplying by 365.2422 days / year.  Rates based on
+#'         `POSIXt` objects are converted to annual values by multiplying slope
+#'         estimates by multiplying by 31556926 seconds / year (with a warning
+#'         about rounding error). No scaling is done for `.mode == 'time'` or
+#'         `.mode == 'count'`.
 #' @param retain_model  Boolean.  If `TRUE`, the piecewise linear model is
-#'        returned via the list's 'model' slot.
+#'        returned via the 'model' slot of the return value.
 #'
 #' @return a list, with the following components:
 #' \describe{
@@ -85,13 +84,13 @@
 #'
 #' @examples
 #'
-slr_change = function(.data, .sl, .dt, .span = 20,
-                     by_year = TRUE, retain_model = FALSE) {
+slr_change = function(.data, .sl, .dt, .span = 20L,
+                     .mode = c('year', 'duration', 'count'),
+                     t_fit = FALSE,
+                     retain_model = FALSE) {
 
   # Ugly argument checks, since they doesn't provide nice error messages.
   stopifnot(is.data.frame(.data) | is.null(.data))
-  stopifnot(inherits(by_year, 'logical'))
-  stopifnot(length(by_year) == 1)
   stopifnot(inherits(retain_model, 'logical'))
   stopifnot(length(retain_model) == 1)
 
@@ -100,6 +99,8 @@ slr_change = function(.data, .sl, .dt, .span = 20,
 
   sl <- rlang::eval_tidy(sl_sym, .data)
   the_date <- rlang::eval_tidy(date_sym, .data)
+
+  .mode = match.arg(.mode)
 
   # Error Checks
   # If `by_year == TRUE` then we find a breakpoint

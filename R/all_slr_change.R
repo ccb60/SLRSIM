@@ -8,45 +8,25 @@
 #' models over the years. This is a simple question that is rather more complex
 #' to answer statistically than it at first appears.
 #'
-#' This function checks for a change in rate of sea level rise in the most
-#' recent period of .span years by comparing it to every prior period of the
-#' same length in the historic record.
+#' This function compares the rate of sea level rise in the most recent period
+#' (defined by `.span`) to the rate of sea level rise in prior periods of
+#' the same length in the historic record.
 #'
 #' This function returns a probability that corresponds to the percentage of
-#' all prior periods with a slope equal to or greater than the most recent
+#' prior evaluates periods with a slope equal to or greater than the most recent
 #' slope.
 #'
 #' While conceptually, this is akin to a p-value, with the null hypothesis that
 #' the current period is drawn from the same distribution as all prior slopes,
 #' it should not be interpreted strictly. Consecutive slopes are strongly
-#' auto-correlated, and this analysis makes no effort to account for that.
+#' auto-correlated. This analysis makes no effort to account for that
+#' autocorrelation.
 #'
-#' @param .data Source data frame for data.  Use NULL if no data frame is used
-#'        and all data is passed from the enclosing environment.
-#' @param .sl  The data variable (usually found in the data frame) showing sea
-#'        level or mean sea level.  Must be a named variable, not an
-#'        expression.
-#' @param .dt   Data variable containing corresponding midpoint dates for the
-#'        period of averaging used to calculate .sl. Must be a named variable,
-#'        not an expression. Midpoint dates for a given month can be
-#'        approximated with `as.Date(paste(year, month, 15, sep = '-')`.
-#' @param .span.  Span defining the "recent" period for fitting the model.
-#'        integer or difftime object.  Interpretation of .span depends on the
-#'        value of the by_year. If `by_year == TRUE`, `.span` must be an
-#'        integer, and is interpreted as the number of years included in the
-#'        "recent" period for fitting the model.  If `by_year == FALSE`, and
-#'        `.span` is an integer, it is interpreted as the number of records to
-#'        include in the 'recent' period.
-#' @param .interval Integer.  Default = 1.  Spacing of samples on which to
-#'        calculate slopes.
-#' @param .mode one of c('year', 'duration', 'count') indicating whether the results should be scaled to
-#'        annual values by multiplying by 365.25. If `.dt` is not a Date, this
-#'         is ignored, and no scaling is conducted.
-#' @param t_fit Should models be fit based on time coordinates, or
-#'        only on the sequence of observations in the data?  Setting this
-#'        to TRUE is safer if you are uncertain of the sequence of observations
-#'        in the source data, or if there are many missing values in your data,
-#'        but it slows model fitting somewhat.
+#' @inheritParams slr_change
+#' @param .interval Integer. Spacing of the start of time periods
+#'        on which to calculate slopes. For `.mode == 'year'`, defaults to 1.
+#'        Otherwise, must be provided.
+#'
 #' @return
 #'
 #' @family sea level rate functions
@@ -55,7 +35,8 @@
 #'
 #' @examples
 #'
-all_slr_change = function(.data, .sl, .dt, .span = 20L, .interval = 1L,
+all_slr_change = function(.data, .sl, .dt, .span = 20L,
+                          .interval = if (.mode == 'year') 1L else NULL,
                           .mode = c('year', 'duration', 'count'),
                           t_fit = FALSE) {
 
@@ -63,7 +44,7 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L, .interval = 1L,
   stopifnot(is.data.frame(.data) | is.null(.data))
   stopifnot(inherits(by_year, 'logical'))
   stopifnot(length(by_year) == 1)
-  stopifnot(is.numeric(.interval))
+  stopifnot(is.numeric(.interval) || inherits(.interval, 'difftime'))
   stopifnot(length(.interval) == 1)
   stopifnot(inherits(t_fit, 'logical'))
   stopifnot(length(t_fit == 1))
@@ -77,7 +58,7 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L, .interval = 1L,
   .mode = match.arg(.mode)
 
   # Error Checks
-  have_dates <- inherits(the_date, 'Date') || inherits(the_date, 'POSIXt')
+  have_dates <- inherits(the_date, c('Date','POSIXt'))
   # Remember that `is.integer()` checks for the storage mode, not whether the
   # parameter passed is a LOGICAL integer, which can be stored in a double.
   # We check for integer values by difference.  The tolerance here is one in

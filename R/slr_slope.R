@@ -78,12 +78,11 @@
 #' `as.Date()` or by building them up from month, day, and year information with
 #' `as.Date(paste(year, month, 15, sep = '-')`.
 #'
-#' By default, slope estimate and standard error are scaled from days (based on
-#' Dates) to (approximate) annual values by multiplying by 365.2422. If you pass
-#' a time coordinate that is NOT of class Date, no scaling will be done, and you
-#' you will need to scale the results appropriately. You can turn off scaling to
-#' annual values by passing `by_year = FALSE`.
-#'
+#' By default, analysis is conducted by years (`.mode == 'year'`). The slope
+#' estimate and standard error are scaled from days (based on R Dates) or
+#' seconds (based on POSXIt objects) to (approximate) annual values by
+#' multiplying by 365.242 2 (days / Dates) or 31556926 (seconds / POSIXt).
+
 #' @param .data Source data frame for data.  Use NULL if no data frame is used
 #'         and all data is passed from
 #'         the enclosing environment.
@@ -93,23 +92,32 @@
 #' @param .dt   Data variable containing corresponding midpoint dates for the
 #'        period of averaging used to calculate .sl. Must be a named variable,
 #'        not an expression. Midpoint dates for a given month can be approximated
-#'        with `as.Date(paste(year, month, 15, sep = '-')`
+#'        with `as.Date(paste(year, month, 15, sep = '-')`.
 #' @param .ci P value for two sided confidence intervals for the estimated
 #'        slope, based on a (possibly naive) normal approximation.
-#' @param t_fit Should the model be fit based on the time coordinate, or
-#'        only on the sequence of observations in the data?  Setting this
-#'        to TRUE is safer if you are uncertain of the sequence of observations
-#'        in the source data, or  significant missing values in your data.
-#' @param by_year Boolean indicating whether the results should be scaled to
-#'        annual values by multiplying by 365.2422. If `.dt` is not a Date, this
-#'        is ignored, and no scaling is conducted.
+#' @param t_fit Should the underlying generalized linear model's correlation
+#'        structure be fit based on the time coordinate (.dt), or only on the
+#'        sequence of observations in the data? Setting this to TRUE is safer if
+#'        you are uncertain of the sequence of observations in the source data,
+#'        or significant missing values in the data, but it significantly slows
+#'        model fitting.  Results tend to be very similar for complete or near
+#'        complete data.
+#' @param .mode one of c('year', 'unscaled') indicating whether the
+#'        results should be scaled to  years (the default) or left unscaled.
+#'        Other sea level rate functions accept other `.mode` values.
+#'        Scaling requires the time coordinate to inherit from R `Date` or
+#'        `POSIXt` objects. Rates based on `Dates` are converted to annual
+#'        values by multiplying by 365.2422 days / year.  Rates based on
+#'        `POSIXt` objects are converted to annual values by multiplying slope
+#'        estimates by multiplying by 31556926 seconds / year (with a warning
+#'        about rounding error).
 #' @return
 #' A named vector, with the following components (some may be moved to
 #' attributes in the future).
 #'  \describe{
-#'    \item{Estimate}{The trend. Units depend on source data and value of
-#'          the `by_year` argument. If data is passed as Dates and  `by_year`
-#'          is TRUE, units are per year, otherwise per unit of the .dt variable.}
+#'    \item{Estimate}{The trend. Units depend on value of the `.mode` argument.
+#'    For `.mode == 'year`,  units are per year, otherwise per unit of the .dt
+#'    variable.}
 #'    \item{Std_Err}{Estimated Standard Error of the trend.  Units as above.}
 #'    \item{P_Val}{P value of the trend.  }
 #'    \item{Lower_CI}{Lower confidence interval for the }
@@ -124,20 +132,21 @@
 #' @export
 #'
 #' @examples
-#'  prov_meantrend$MSL <- prov_meantrend$MSL * 1000 (convert to mm)
+#'
+#' prov_meantrend$MSL_mm <- prov_meantrend$MSL * 1000 (convert to mm)
 #' # Basic Usage
-#' slr_slope(prov_meantrend, MSL, MidDate)
+#' slr_slope(prov_meantrend, MSL_mm, MidDate)
 #' # if not passed dates, the result is unscaled
-#'  slr_slope(prov_meantrend, MSL, unclass(MidDate))
+#'  slr_slope(prov_meantrend, MS_mm, unclass(MidDate))
 #' # One can also fit the model to the time coordinate explicitly
-#' slr_slope(prov_meantrend, MSL, MidDate, t_fit = TRUE)
+#' slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
 slr_slope <- function(.data, .sl, .dt,
-                      .ci = 0.95, t_fit = FALSE, by_year = TRUE) {
+                      .ci = 0.95, t_fit = FALSE,
+                      .mode = c('year', 'unscaled')) {
 
   # Ugly argument checks, since they doesn't provide nice error messages.
   stopifnot(is.data.frame(.data) | is.null(.data))
   stopifnot(inherits(t_fit, 'logical'))
-  stopifnot(inherits(by_year, 'logical'))
 
   # We want to be able to accept arguments as unquoted names or quoted names.
   # `ensym()`  captures only names, not expressions
@@ -147,11 +156,30 @@ slr_slope <- function(.data, .sl, .dt,
   sl <- rlang::eval_tidy(sl_sym, .data)
   the_date <- rlang::eval_tidy(date_sym, .data)
 
-  # If we got dates, and by_year is TRUE, we want to scale to years, otherwise
-  # we apply no scaling, anfd leave that to the user.
-  if(inherits(the_date, 'Date') && by_year) {
-    multiplier <- 365.2422
+  .mode = match.arg(.mode)
+
+  have_dates <- inherits(the_date, c('Date','POSIXt'))
+  if(.mode == 'year') {
+    if (! have_dates) {
+      stop('.mode == "year" requires .dt to be a Date or POSIX time.\n',
+           'You can convert integer years to dates with,
+           `as.Date(paste(year, "06", "15"), sep = "-")`')
+    }
+    else if(.mode == 'time') {
+      if (! have_dates) {
+        stop('.mode == "duration" requires .dt to be a Date or POSIX time.\n',
+             'You can convert integer years to dates with,
+           `as.Date(paste(year, "06", "15"), sep = "-")`')
+      }
+    }
   }
+
+
+  # If we got dates, and `.mode == 'year'`, we want to scale to years, otherwise
+  # we apply no scaling, anfd leave that to the user.
+  if (.mode == 'year'&& inherits(the_date, 'Date')) {
+      multiplier <- 365.2422
+      }
   else {
     multiplier <- 1
   }

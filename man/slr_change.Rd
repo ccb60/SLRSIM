@@ -4,11 +4,20 @@
 \alias{slr_change}
 \title{Test whether the rate of sea level rise has changed}
 \usage{
-slr_change(.data, .sl, .dt, .span = 20, by_year = TRUE, retain_model = FALSE)
+slr_change(
+  .data,
+  .sl,
+  .dt,
+  .span = 20L,
+  .mode = c("year", "duration", "count"),
+  t_fit = FALSE,
+  retain_model = FALSE
+)
 }
 \arguments{
 \item{.data}{Source data frame for data.  Use NULL if no data frame is used
-and all data is passed from the enclosing environment.}
+and all data is passed from
+the enclosing environment.}
 
 \item{.sl}{The data variable (usually found in the data frame) showing sea
 level or mean sea level.  Must be a named variable, not an
@@ -16,23 +25,38 @@ expression.}
 
 \item{.dt}{Data variable containing corresponding midpoint dates for the
 period of averaging used to calculate .sl. Must be a named variable,
-not an expression. Midpoint dates for a given month can be
-approximated with \verb{as.Date(paste(year, month, 15, sep = '-')}.}
+not an expression. Midpoint dates for a given month can be approximated
+with \verb{as.Date(paste(year, month, 15, sep = '-')}.}
 
-\item{by_year}{Boolean indicating whether the results should be scaled to
-annual values by multiplying by 365.2422. If \code{.dt} is not a Date, this
-is ignored, and no scaling is conducted.}
-
-\item{retain_model}{Boolean.  If \code{TRUE}, the piecewise linear model is
-returned via the list's 'model' slot.}
-
-\item{.span.}{Span defining the "recent" period for fitting the model.
+\item{.span}{Span defining the "recent" period for fitting the model.
 integer or difftime object.  Interpretation of .span depends on the
 value of the by_year. If \code{by_year == TRUE}, \code{.span} must be an
 integer, and is interpreted as the number of years included in the
 "recent" period for fitting the model.  If \code{by_year == FALSE}, and
 \code{.span} is an integer, it is interpreted as the number of records to
 include in the 'recent' period.}
+
+\item{.mode}{one of c('year', 'time', 'count') indicating whether the .span
+is expressed in years, time coordinates, or number of observations.
+If \code{.mode == 'year'}, slopes are scaled to be expressed on a per year
+basis.  Scaling requires the time coordinate to inherit from R
+\code{Date} or \code{POSIXt} objects.  Rates based on \code{Dates} are converted to
+annual values by multiplying by 365.2422 days / year.  Rates based on
+\code{POSIXt} objects are converted to annual values by multiplying slope
+estimates by multiplying by 31556926 seconds / year (with a warning
+about rounding error). No scaling is done for \code{.mode == 'time'} or
+\code{.mode == 'count'}.}
+
+\item{t_fit}{Should the underlying generalized linear model's correlation
+structure be fit based on the time coordinate (.dt), or only on the
+sequence of observations in the data? Setting this to TRUE is safer if
+you are uncertain of the sequence of observations in the source data,
+or significant missing values in the data, but it significantly slows
+model fitting.  Results tend to be very similar for complete or near
+complete data.}
+
+\item{retain_model}{Boolean.  If \code{TRUE}, the piecewise linear model is
+returned via the 'model' slot of the return value.}
 }
 \value{
 a list, with the following components:

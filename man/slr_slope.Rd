@@ -4,7 +4,14 @@
 \alias{slr_slope}
 \title{Calculate Long Term Estimate of SLR}
 \usage{
-slr_slope(.data, .sl, .dt, .ci = 0.95, t_fit = FALSE, by_year = TRUE)
+slr_slope(
+  .data,
+  .sl,
+  .dt,
+  .ci = 0.95,
+  t_fit = FALSE,
+  .mode = c("year", "unscaled")
+)
 }
 \arguments{
 \item{.data}{Source data frame for data.  Use NULL if no data frame is used
@@ -18,27 +25,36 @@ expression.}
 \item{.dt}{Data variable containing corresponding midpoint dates for the
 period of averaging used to calculate .sl. Must be a named variable,
 not an expression. Midpoint dates for a given month can be approximated
-with \verb{as.Date(paste(year, month, 15, sep = '-')}}
+with \verb{as.Date(paste(year, month, 15, sep = '-')}.}
 
 \item{.ci}{P value for two sided confidence intervals for the estimated
 slope, based on a (possibly naive) normal approximation.}
 
-\item{t_fit}{Should the model be fit based on the time coordinate, or
-only on the sequence of observations in the data?  Setting this
-to TRUE is safer if you are uncertain of the sequence of observations
-in the source data, or  significant missing values in your data.}
+\item{t_fit}{Should the underlying generalized linear model's correlation
+structure be fit based on the time coordinate (.dt), or only on the
+sequence of observations in the data? Setting this to TRUE is safer if
+you are uncertain of the sequence of observations in the source data,
+or significant missing values in the data, but it significantly slows
+model fitting.  Results tend to be very similar for complete or near
+complete data.}
 
-\item{by_year}{Boolean indicating whether the results should be scaled to
-annual values by multiplying by 365.2422. If \code{.dt} is not a Date, this
-is ignored, and no scaling is conducted.}
+\item{.mode}{one of c('year', 'unscaled') indicating whether the
+results should be scaled to  years (the default) or left unscaled.
+Other sea level rate functions accept other \code{.mode} values.
+Scaling requires the time coordinate to inherit from R \code{Date} or
+\code{POSIXt} objects. Rates based on \code{Dates} are converted to annual
+values by multiplying by 365.2422 days / year.  Rates based on
+\code{POSIXt} objects are converted to annual values by multiplying slope
+estimates by multiplying by 31556926 seconds / year (with a warning
+about rounding error).}
 }
 \value{
 A named vector, with the following components (some may be moved to
 attributes in the future).
 \describe{
-\item{Estimate}{The trend. Units depend on source data and value of
-the \code{by_year} argument. If data is passed as Dates and  \code{by_year}
-is TRUE, units are per year, otherwise per unit of the .dt variable.}
+\item{Estimate}{The trend. Units depend on value of the \code{.mode} argument.
+For \verb{.mode == 'year},  units are per year, otherwise per unit of the .dt
+variable.}
 \item{Std_Err}{Estimated Standard Error of the trend.  Units as above.}
 \item{P_Val}{P value of the trend.  }
 \item{Lower_CI}{Lower confidence interval for the }
@@ -127,20 +143,20 @@ hood. It is easy to build Dates, either by converting POSIX times with
 \code{as.Date()} or by building them up from month, day, and year information with
 \verb{as.Date(paste(year, month, 15, sep = '-')}.
 
-By default, slope estimate and standard error are scaled from days (based on
-Dates) to (approximate) annual values by multiplying by 365.2422. If you pass
-a time coordinate that is NOT of class Date, no scaling will be done, and you
-you will need to scale the results appropriately. You can turn off scaling to
-annual values by passing \code{by_year = FALSE}.
+By default, analysis is conducted by years (\code{.mode == 'year'}). The slope
+estimate and standard error are scaled from days (based on R Dates) or
+seconds (based on POSXIt objects) to (approximate) annual values by
+multiplying by 365.242 2 (days / Dates) or 31556926 (seconds / POSIXt).
 }
 \examples{
- prov_meantrend$MSL <- prov_meantrend$MSL * 1000 (convert to mm)
+
+prov_meantrend$MSL_mm <- prov_meantrend$MSL * 1000 (convert to mm)
 # Basic Usage
-slr_slope(prov_meantrend, MSL, MidDate)
+slr_slope(prov_meantrend, MSL_mm, MidDate)
 # if not passed dates, the result is unscaled
- slr_slope(prov_meantrend, MSL, unclass(MidDate))
+ slr_slope(prov_meantrend, MS_mm, unclass(MidDate))
 # One can also fit the model to the time coordinate explicitly
-slr_slope(prov_meantrend, MSL, MidDate, t_fit = TRUE)
+slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
 }
 \seealso{
 Other sea level rate functions: 
