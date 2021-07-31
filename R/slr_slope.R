@@ -72,11 +72,10 @@
 #'
 #' If `t_fit = TRUE`, the function fits an autocorrelation structure based on
 #' the time coordinate (.dt). In this case, the time coordinate must be integer
-#' valued. POSIXct dates and times are floating point values, while POSIXlt are
-#' lists, so neither is suitable, but R's Date class is an integer under the
-#' hood. It is easy to build Dates, either by converting POSIX times with
-#' `as.Date()` or by building them up from month, day, and year information with
-#' `as.Date(paste(year, month, 15, sep = '-')`.
+#' valued. R's Date class is an integer under the hood. It is easy to build
+#' Dates, either by converting POSIX times with `as.Date()` or by building
+#' them up from month, day, and year information with
+#'  `as.Date(paste(year, month, 15, sep = '-')`.
 #'
 #' By default, analysis is conducted by years (`.mode == 'year'`). The slope
 #' estimate and standard error are scaled from days (based on R Dates) or
@@ -159,27 +158,23 @@ slr_slope <- function(.data, .sl, .dt,
   .mode = match.arg(.mode)
 
   have_dates <- inherits(the_date, c('Date','POSIXt'))
-  if(.mode == 'year') {
-    if (! have_dates) {
-      stop('.mode == "year" requires .dt to be a Date or POSIX time.\n',
-           'You can convert integer years to dates with,
+  if(.mode == 'year' & ! have_dates) {
+    stop('.mode == "year" requires .dt to be a Date or POSIX time.\n',
+         'You can convert integer years to dates with,
            `as.Date(paste(year, "06", "15"), sep = "-")`')
-    }
-    else if(.mode == 'time') {
-      if (! have_dates) {
-        stop('.mode == "duration" requires .dt to be a Date or POSIX time.\n',
-             'You can convert integer years to dates with,
-           `as.Date(paste(year, "06", "15"), sep = "-")`')
-      }
-    }
   }
 
-
-  # If we got dates, and `.mode == 'year'`, we want to scale to years, otherwise
-  # we apply no scaling, anfd leave that to the user.
+  # If we got dates or times, and `.mode == 'year'`, we want to scale to years,
+  # otherwise we apply no scaling, and leave that to the user.
   if (.mode == 'year'&& inherits(the_date, 'Date')) {
       multiplier <- 365.2422
-      }
+  }
+  else if (.mode == 'year' && inherits(the_date, 'POSIXct')) {
+    # 365 days, 5 hours, 48 minutes, and 46 seconds
+    multiplier <- 31556926  #seconds per year, on average
+    message("Annual trends based on POSIXct times may be affected by",
+            "rounding. Consider rexpressing time coordinates as R Dates.")
+  }
   else {
     multiplier <- 1
   }
@@ -207,13 +202,17 @@ slr_slope <- function(.data, .sl, .dt,
                          correlation = nlme::corAR1())
   }
 
+  # TODO: Use direct computation rather than relying on `summary()$tTable`
+  # everything except the p value can be accessed via `coef()` and `vcov()`.
   mod_sum <- as.data.frame(summary(the_gls)$tTable)
   EST <- mod_sum$Value[2] * multiplier  # convert to year
   SE <- mod_sum$Std.Error[2]   * multiplier
   P <-  mod_sum$`p-value`[2]
   low_CI <- EST - q_val*SE
   high_CI<- EST + q_val*SE
-  return(c(Estimate = EST, Std_Err = SE, P_Val = P,
-           Lower_CI =  low_CI, Upper_CI = high_CI, CI_P = .ci,
-           span = yearspan, start = min(year), end = max(year)))
+
+  result <- structure(c(Estimate = EST, Std_Err = SE, P_Val = P,
+              Lower_CI =  low_CI, Upper_CI = high_CI), CI_P = .ci,
+              span = yearspan, start = min(year), end = max(year))
+  return(result)
 }

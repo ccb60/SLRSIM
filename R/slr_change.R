@@ -85,7 +85,7 @@
 #' @examples
 #'
 slr_change = function(.data, .sl, .dt, .span = 20L,
-                     .mode = c('year', 'duration', 'count'),
+                     .mode = c('year', 'time', 'count'),
                      t_fit = FALSE,
                      retain_model = FALSE) {
 
@@ -111,63 +111,69 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   # If we got dates, or times, we can work directly with years, otherwise, we
   # can't.
 
-  have_dates <- inherits(the_date, 'Date') || inherits(the_date, 'POSIXt')
-  have_diff <- ! by_year & inherits(.span, 'difftime')
+  have_dates <- inherits(the_date, 'Date') || inherits(the_date, 'POSIXct')
+  have_diff <-  inherits(.span, 'difftime')
 
   # Remember that `is.integer()` checks for the storage mode, not whether the
   # parameter passed is a LOGICAL integer, which can be stored in a double.
   # We check for integer values by difference.  The tolerance here is one in
   # one thousand, which is below one day out of the year, but above the accuracy
   # of double precision values.
-  if(by_year) {
+  if(.mode == 'year') {
     if (! have_dates) {
-    stop('by_year == TRUE requires .dt to be a Date or POSIX time.')
+      stop('.mode == "year" requires .dt to be a Date or POSIXct time.\n',
+           'You can convert integer years to dates with,
+           `as.Date(paste(year, "06", "15"), sep = "-")`')
     }
     else if(! abs(.span - as.integer(.span)) < 0.001) {
-      stop('If by_year == TRUE,  .span must be an integer giving the number of years.')
+      stop('If .mode == "year",  .span must be an integer giving the number',
+           'of years over which to calculate the recent sea level trend.')
     }
   }
 
-  if(! by_year) {
-    if (! abs(.span - as.integer(.span)) < 0.001 || inherits(.span, 'difftime')) {
-      stop('If by_year == FALSE,  .span must be a  a difftime object, or',
-           'an integer giving a number of observations.')
+  else if (.mode == 'time') {
+    if (! inherits(.span, 'difftime')) {
+      stop('If .mode == "time", .span must be a difftime object.')
     }
-    if(have_diff && ! inherits(the_date, c('Date', 'POSIXt'))) {
-      stop('If .span is given as a difftime object, .dt must be either a',
-           'Date or POSIXt datetime object.')
+    if(! inherits(the_date, c('Date', 'POSIXct'))) {
+      stop('If .mode == "time", .dt must be either a Date or POSIXct object.')
+    }
+  }
+  else if (.mode == 'count') {
+    if(! abs(.span - as.integer(.span)) < 0.001) {
+      stop('If .mode == "year",  .span must be an integer giving the number',
+           'of observations over which to calculate the recent sea level trend.')
     }
   }
 
-  # Reorder the data by the time stamp.  Only essential for by_year == FALSE and
-  # integer valued .span, but does little harm otherwise.
+  # Reorder the data by the time stamp.  Only essential for .mode == 'count',
+  # but it costs little otherwise.
   sl <- sl[order(the_date)]
   the_date <- the_date[order(the_date)]
 
   # Actually calculate the break point.  We have three cases:  by_year == TRUE,
   # by_year == FALSE with difftime, or by_year == FALSE with integer.
-  if (by_year) {
+  if (.mode == 'year') {
     last_year <- as.numeric(format(max(the_date), format = '%Y'))
     cutyear <- last_year - .span
     cutdate <- as.Date(paste0(cutyear, '-12-31'), format = '%Y-%m-%d')
     is_recent <- the_date > cutdate
   }
-  else if (have_diff) {
+  else if (.mode == 'time') {
     last_date <- max(the_date)
     cutdate <- last_date - .span
     is_recent <- the_date > cutdate
-    message('Recent data includes data after ', cutdate)
   }
   else{
     is_recent <- logical(length(the_date))
     cutpoint <- length(the_date) - round(.span, 0)
     is_recent[1: cutpoint-1] <- FALSE
     is_recent[cutpoint:length(the_date)] <- TRUE
-    cutdate <- max(the_date[! is_recent])
-    message('Recent data includes the most recent', .span, ' observations.' )
+    cutdate <- min(the_date[is_recent])
+    message('Recent data includes the most recent', .span, 'observations.')
   }
 
-  message('Recent data includes data after ', cutdate)
+  message('Recent period includes data after ', cutdate)
 
   # Create date-time difference
   # We will fit a (linear) parameter to this variable, which enables
@@ -185,22 +191,52 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   the_sum <- summary(piecewise_gls)
   the_anova <- anova(the_gls, piecewise_gls)
 
-  results <- list()
-  results['Sample']  <- the_sum$dims$N
-  results['L.Ratio'] <- the_anova$L.Ratio[[2]]
-  results['p-value'] <- the_anova$`p-value`[[2]]
-  results['delta_AIC'] <- the_anova$AIC[[2]] - the_anova$AIC[[1]]
-  results['slope_old'] <- the_sum$tTable[[2,1]]
-  results['slope_old_err'] <- the_sum$tTable[[2,2]]
-  results['slope_recent'] <- the_sum$tTable[[2,1]] +the_sum$tTable[[3,1]]
-  results['slope_recent_err'] <- sqrt(the_sum$tTable[[2,2]]^2 +
-                                       the_sum$tTable[[3,2]]^2)
-  results['slope_ratio'] = results$slope_recent/results$slope_old
 
+  # For .mode == 'year', we convert units for Date or POSIXct objects
+  if (.mode == 'year'&& inherits(the_date, 'Date')) {
+    multiplier <- 365.2422
+  }
+  else if (.mode == 'year' && inherits(the_date, 'POSIXct')) {
+    # 365 days, 5 hours, 48 minutes, and 46 seconds
+    multiplier <- 31556926  #seconds per year, on average
+    message("Annual trends based on POSIXct times may be affected by",
+            "rounding. Consider rexpressing time coordinates as R Dates.")
+  }
+  else {
+    multiplier <- 1
+  }
+
+  # Calculate "upper" slope and its standard error
+  betas <- coef(piecewise_gls)
+  vcv <- vcov(piecewise_gls)
+  slope_recent <- sum(betas[2:3])
+  slope_recent_err <- sqrt(sum(vcv[2:3,2:3]))
+
+  cor_struct = c('Order-based', 'Time-based')[t_fit + 1]
   #browser()
+  r <- c (slope_old = the_sum$tTable[[2,1]] * multiplier,
+          slope_old_err = the_sum$tTable[[2,2]] * multiplier,
+          slope_recent = slope_recent * multiplier,
+          slope_recent_err = slope_recent_err * multiplier)
+  r['slope_ratio'] <- r['slope_recent']/r['slope_old']
+  r <-r[c(5,1:4)]
+
+  details <- c(l_ratio = the_anova$L.Ratio[[2]],
+               p_value = the_anova$`p-value`[[2]],
+               delta_AIC = the_anova$AIC[[2]] - the_anova$AIC[[1]])
+  settings <- c(sample = the_sum$dims$N,
+               mode = .mode,
+               cor_struct = cor_struct,
+               span = .span)
+
+
+  results <- list(summary = r, details = details, settings = settings)
   if(retain_model) {
     results[['model']] <- piecewise_gls
   }
+
+  #browser()
+
   return(results)
 }
 

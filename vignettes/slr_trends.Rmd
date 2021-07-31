@@ -25,7 +25,7 @@ library(nlme)
 library(SLRSIM)
 ```
 
-# Import Data
+# Access Data
 Our primary source data is based on NOAA's analysis of sea level trends.  The
 description on the source web site
 (https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000)
@@ -60,49 +60,123 @@ sl_t$trendError
 ```
 NOAA reports a value of 2.40 +/- 0.23 mm/year.
 
-#  A Generalized Linear Model Analysi
+#  A Generalized Linear Model Analysis
 ```{r slr_gls}
-the_gls <- gls(MSL~MidDate, data=prov_meantrend,
+the_gls <- gls(MSL_mm ~ MidDate, data=prov_meantrend,
                correlation = corAR1(), method = 'ML')
 (s <- summary(the_gls))
 ```
-We need to convert units from meters and days to millimeters and years
+We need to convert units from days to years.  We can find the info we need
+either in the tTable component of the model sumamry:
 ```{r}
-s$tTable[2,1] * 365.25 * 1000
-s$tTable[2,2] * 365.25 * 1000
-
+s$tTable[2,1] * 365.2422 
+s$tTable[2,2] * 365.2422
 ```
-
-So, we get 2.41 +/- 0.12.  If NOAA rounds the estimate onl to tenths of 
-millimeters, our results match.  otherwise, they are ecver so slightly different.
+Or directly 
+```{r}
+coef(the_gls)[2] * 365.2422
+sqrt(vcov(the_gls)[2,2]) * 365.2422
+```
+So, we get 2.41 +/- 0.12.  If NOAA rounds the estimate only to tenths of 
+millimeters, our results match.  Otherwise, they are ever so slightly different.
 
 
 # The `slr_slope()` Function
 The SLR_slope function is a convenience function that wraps up the linear model 
-just presented and spits out model coefficients without requiring you to build
-your own model.
+just presented and spits out model coefficients and otehr metadata without 
+requiring you to build your own model.
 
 {TODO:  Add code to make this print out in a nicer way, whether by rounding or 
 by creating an s3 class and overriding the print method.}
 
 ```{r}
-slope_info <- slr_slope(prov_meantrend, MSL, MidDate)
-round(slope_info,4)
+slope_info <- slr_slope(prov_meantrend, MSL_mm, MidDate)
+print(round(slope_info[1:5],4))
 ```
 
 Setting t_fit = TRUE makes the model run much more slowly, as it is fitting an
 autoregressive model based on the time coordinate, rather than just the sequence
-of observations.  The resulting fit is (here) ever so slightly different.  This 
-version will handle unevenly spaced observations appropriatley, and may be 
-preferred if there are many missing values in the source data.
+of observations.  The resulting fit is (here) not quite identical, but very 
+similar.  
 
-```{r cache = TRUE, eval = FALSE}
-slope_info <- slr_slope(prov_meantrend, MSL, MidDate, t_fit = TRUE)
-round(slope_info,4)
+`t_fit == TRUE` will handle unevenly spaced observations appropriately, and may 
+be preferred if there are many missing values in the source data.  The following code takes about 30 seconds to a minute to run.
+
+```{r cache = TRUE}
+system.time({
+slope_info <- slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
+print(round(slope_info[1:5],4))
+})
 ```
 
-# Add Example using "Raw" data
+## Date Time Formats
+With `.mode = 'year'`, which is the default, the time coordinate, `.dt`, must 
+be either class "Date" or "POSIXct". The last model was run on dates stores as R `Date` objects.  Here we demonstrate a model run on "POSIXct" times.  It
+produces results identical to the analysis based on Date objects.
+```{r error = TRUE}
+tmp <- prov_meantrend %>%
+  mutate(MidDate = as.POSIXct(MidDate))
 
+# this works:
+slope_info_raw_POSIX <- slr_slope(tmp, MSL_mm, MidDate, t_fit = FALSE)
+round(slope_info_raw_POSIX[1:5],4)
+```
+
+But with "POSIXt" objects, trying to fit the model with a covariance structure
+based on the time coordinate (in seconds) fails.  This is probably because of
+the way the `corAR1()` function is implemented internally.  
+```{r error = TRUE}
+slope_info_raw_POSIX <- slr_slope(tmp, MSL_mm, MidDate, t_fit = TRUE)
+```
+
+##  The `.mode` Argument
+If you set `.mode = 'unscaled', the function will report the trend without
+rescaling to annual rates.  The rate and its standard error will be reported in
+the same units as used to express `.dt`.
+
+You could, for example, create a new variable that starts at zero in January of 
+1900, and increments by one each month. Using `.mode = 'unscaled'` produces an
+estimate of the long term average monthly rate of change in sea level.  Scaling
+that result to an annual basis by hand shows that the result is equivalent
+(although not quite identical) to the result when working with Dates.
+
+```{r}
+tmp <- prov_meantrend %>%
+  mutate(months = (Year - 1900) * 12 + (Month -1))
+
+(res <- round(slr_slope(tmp, MSL_mm, months, .mode = 'unscaled')[1:5],4))
+res[['Estimate']] * 12
+```
+
+Setting `t_fit = TRUE` works for unscaled analyses too, and in this case, it
+runs somewhat faster, presumably because  `months` has one possible value
+per observation (absent missing values), making the process fo constructing
+the correlation structure faster.
+
+```{r cache = TRUE}
+tmp <- prov_meantrend %>%
+  mutate(months = (Year - 1900) * 12 + (Month -1))
+
+system.time(res <- round(slr_slope(tmp, MSL_mm, months, .mode = 'unscaled', 
+                        t_fit = TRUE)[1:5],4))
+res
+res[['Estimate']] * 12
+```
+
+## Comparison to Results with Data not Seasonally Corrected
+NOAA also releases "raw" monthly mean water level data.  Unlike the seasonally
+adjusted values used by NOAA to generate sea level rise rate estimates, these 
+"raw" water level data are available through the NOAA API.
+
+If we run the same analysis on the "raw" data, we get similar, but again not
+identical, results. The most obvious change in  an increase in the estimated
+standard error.  That makes sense, as the "seasonally adjusted" data in effect
+removes one source of variability from the data. As that variability is still
+present, standard errors are a bit higher.
+```{r}
+slope_info_raw <- slr_slope(prov_monthly, MSL_mm, MidDate, t_fit = FALSE)
+print(round(slope_info_raw[1:5],4))
+```
 
 # Has Sea Level Rise Increased Recently?
 A frequent question raised in analysis of sea level records is whether the rate
@@ -119,20 +193,31 @@ This analysis is embodied in the function `slr_change()`.
 
 The piecewise linear model fits the data with two linear segments that join at a
 knot.  The easiest way to specify a knot is by the number of years in the
-"recent" period, but the knot can also bespecified by a time interval (class
-"difftime") or an integer specifying the number of observations to include in
-the "Recent" period.
+"recent" period.
 
 ```{r}
-s <- slr_change(prov_meantrend, MSL, MidDate, .span = 20, by_year = TRUE)
-s
+s <- slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20, .mode = 'year')
+round(s$summary,4)
+round(s$details,4)
+s$settings
+
 ```
 
-# Showing Model Results
-It is possible, and sometimes helpful, to retan the model results for further
+The location of the knot can also be specified by a time 
+interval (of class "difftime") by specifying `.mode = 'time'`,  Last, it can be 
+defined by passing an integer specifying the number of observations to include 
+in the "Recent" period by specifying `.mode = 'count'`.
+
+
+
+## Graphic of Model Results
+It is possible, and sometimes helpful, to retain the model results for further
 examination or processing. Because R model objects encapsulate the source data, 
 they are often quite large, so `we`slr_change()` does not return the fitted 
-model object ubnless specifically requested.
+model object unless specifically requested.
+
+It is often worth examining the models to make sure you understand how the model
+was fit, review model diagnostics, etc.
 
 One circumstance in which the model object is useful is if you want to prepare
 a graphic showing the piecewise linear model.
@@ -147,6 +232,9 @@ s <- slr_change(prov_meantrend, MSL, MidDate, .span = 20,
 piecewise_gls <- s$model
 ```
 
+```{r}
+summary(piecewise_gls)
+```
 
 ## Visualizing the Models
 ```{r  visualize_models, plot_slr_models, fig.height = 7, fig.width = 5}

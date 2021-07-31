@@ -90,12 +90,12 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
     else if(! inherits(.span, 'difftime')) {
       stop('.mode == "duration" requires .span to be of class "difftime".',
            'You can convert a number of years to (approximate) "difftime" with,
-           `(as.difftime(years * 365.25, units = "days")`.')
+           `(as.difftime(years * 365.2422, units = "days")`.')
     }
     else if(! inherits(.interval, 'difftime')) {
       stop('.mode == "duration" requires .interval to be of class "difftime".',
            'You can convert a number of years to (approximate) "difftime" with,
-           `(as.difftime(years * 365.25, units = "days")`.')
+           `(as.difftime(years * 365.2422, units = "days")`.')
     }
 
   }
@@ -241,7 +241,9 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
                             n_slopes = n_slopes,
                             df = data.frame(label, starts, stops, samples,
                                             slopes, pvals)),
+
                        mode = .mode,
+                       span = .span,
                        interval = .interval,
                        cor_struct = cor_struct)
 return(results)

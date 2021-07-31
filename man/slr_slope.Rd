@@ -137,10 +137,9 @@ less successful if there are many periods with missing observations.
 
 If \code{t_fit = TRUE}, the function fits an autocorrelation structure based on
 the time coordinate (.dt). In this case, the time coordinate must be integer
-valued. POSIXct dates and times are floating point values, while POSIXlt are
-lists, so neither is suitable, but R's Date class is an integer under the
-hood. It is easy to build Dates, either by converting POSIX times with
-\code{as.Date()} or by building them up from month, day, and year information with
+valued. R's Date class is an integer under the hood. It is easy to build
+Dates, either by converting POSIX times with \code{as.Date()} or by building
+them up from month, day, and year information with
 \verb{as.Date(paste(year, month, 15, sep = '-')}.
 
 By default, analysis is conducted by years (\code{.mode == 'year'}). The slope
