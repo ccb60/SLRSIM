@@ -27,6 +27,7 @@
 #'   \item{MidDate}{Date of the fifteenth of the month}
 #'   \item{MSL}{mean sea level, in meters, here }
 #'   \item{MSL_ft}{mean sea level, converted to feet}
+#'   \item{MSL_mm}{mean sea level, converted to millimeters}
 #' }
 #' @source \url{https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000}
 "prov_meantrend"

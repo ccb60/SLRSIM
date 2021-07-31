@@ -20,6 +20,7 @@ prov_meantrend  <- read_csv(file.path('data-raw',fn),
   mutate(MidDate = as.Date(paste0(Year,'/', Month,'/',15))) %>%
   relocate(MidDate, .after= Month) %>%
   mutate(MSL_ft = MSL *  3.28084) %>%
+  mutate(MSL_mm = MSL *  1000) %>%
   select(-Linear_Trend, -Low_Conf., -High_Conf.)
 
 usethis::use_data(prov_meantrend, overwrite = TRUE)

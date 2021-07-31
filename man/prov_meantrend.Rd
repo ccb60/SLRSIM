@@ -12,6 +12,7 @@ A data frame with 868 rows and 5 variables:
 \item{MidDate}{Date of the fifteenth of the month}
 \item{MSL}{mean sea level, in meters, here }
 \item{MSL_ft}{mean sea level, converted to feet}
+\item{MSL_mm}{mean sea level, converted to millimeters}
 }
 }
 \source{
