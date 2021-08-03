@@ -203,14 +203,56 @@ s$settings
 
 ```
 
-The location of the knot can also be specified by a time 
-interval (of class "difftime") by specifying `.mode = 'time'`,  Last, it can be 
-defined by passing an integer specifying the number of observations to include 
-in the "Recent" period by specifying `.mode = 'count'`.
+## Alternative Time Coordinates
+The location of the knot can also be specified by a time interval (of class
+"difftime") by specifying `.mode = 'time'`.  It is inconvenient that the 
+"difftime" class does not accept time expressed in months, which is often
+going to be the units of interest.  For longer time records (over a few years),
+one can calculate the (approximate) number of days based on a number of
+intervening months by multiplying the number of months by the average number of 
+days in a month, 
+$$ Y \text{ Days} \approx X \text{ Months} \times 
+\frac{365.2422 \text{ Days per Year}}{12 \text{ Months per Year}}$$
 
 
+We demonstrate by specifying time in months -- here 240 month , which is 
+equivalent to  20 years, as before.  We do not expect results to be identical, 
+as the "recent" 240 months will line up with the last observation in the data,
+not with calendar years.
 
-## Graphic of Model Results
+```{r}
+max(prov_meantrend$MidDate)
+(our_span <- round(as.difftime(240 * (365.2422/12), units = 'days')))
+```
+
+```{r}
+s <- slr_change(prov_meantrend, MSL_mm, MidDate, 
+                .span = our_span, .mode = 'time')
+round(s$summary,4)
+round(s$details,4)
+s$settings
+
+```
+
+Note that the slopes presented here are untransformed, so expressed in units
+of days, and need to be converted to units of interest.
+
+Last, the recent period can be defiend by the number of observations in the
+recent period by passing an integer and specifying `.mode = 'count'`.
+
+```{r}
+s <- slr_change(prov_meantrend, MSL_mm, MidDate, 
+                .span = 240, .mode = 'count')
+round(s$summary,4)
+round(s$details,4)
+s$settings
+
+```
+Note that the slopes presented here are untransformed, so expressed in units
+of days, and need to be converted to units of interest.
+
+
+## Examining Model Results
 It is possible, and sometimes helpful, to retain the model results for further
 examination or processing. Because R model objects encapsulate the source data, 
 they are often quite large, so `we`slr_change()` does not return the fitted 
@@ -222,11 +264,11 @@ was fit, review model diagnostics, etc.
 One circumstance in which the model object is useful is if you want to prepare
 a graphic showing the piecewise linear model.
 
-First, we re-ru the model indicating that we want to fitted model object.
+First, we re-run the model indicating that we want to fitted model object.
 We then and extract the model component, and draw a graphic.
 ```{r}
-s <- slr_change(prov_meantrend, MSL, MidDate, .span = 20, 
-            by_year = TRUE, retain_model = TRUE)
+s <- slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20, 
+            .mode = 'year', retain_model = TRUE)
 ```
 ```{r}
 piecewise_gls <- s$model
@@ -236,9 +278,18 @@ piecewise_gls <- s$model
 summary(piecewise_gls)
 ```
 
+Notice that the model parameters are untransformed, and thus expressed in 
+units per day, not per year.  hi sis likely to be especially disconcerting if 
+originl data were a POSIXct object, and thus expressed in seconds. Under those 
+conditions, and with the default rounding for the display of model parameters,
+it is likely the slopes will appear to be exactly zero.
+
+TODO: Consider changing code so that rescaling occurs before model fitting
+rather than after model fitting, to avoid this problem
+
 ## Visualizing the Models
 ```{r  visualize_models, plot_slr_models, fig.height = 7, fig.width = 5}
-ggplot(prov_meantrend, aes(MidDate, MSL, group = before_gap)) +
+ggplot(prov_meantrend, aes(MidDate, MSL_mm, group = before_gap)) +
   geom_line(color='grey20', alpha = 0.25 ) +
   geom_line(aes(x = MidDate, y = predict(the_gls)),
             color = 'black', lwd = 1) +
@@ -247,4 +298,7 @@ ggplot(prov_meantrend, aes(MidDate, MSL, group = before_gap)) +
   xlab('Date') + 
   ylab('Monthly Mean Tide Level (m, MSL)')
 ```
+
+# Is that most recent slope really exceptional?
+
 

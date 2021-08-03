@@ -150,25 +150,26 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   # but it costs little otherwise.
   sl <- sl[order(the_date)]
   the_date <- the_date[order(the_date)]
-
+  #browser()
   # Actually calculate the break point.  We have three cases:  by_year == TRUE,
   # by_year == FALSE with difftime, or by_year == FALSE with integer.
   if (.mode == 'year') {
     last_year <- as.numeric(format(max(the_date), format = '%Y'))
-    cutyear <- last_year - .span
+    cutyear <- last_year - .span - 1
     cutdate <- as.Date(paste0(cutyear, '-12-31'), format = '%Y-%m-%d')
     is_recent <- the_date > cutdate
   }
   else if (.mode == 'time') {
     last_date <- max(the_date)
-    cutdate <- last_date - .span
+    cutdate <- last_date - .span - 1
     is_recent <- the_date > cutdate
   }
   else{
+    #browser()
     is_recent <- logical(length(the_date))
     cutpoint <- length(the_date) - round(.span, 0)
-    is_recent[1: cutpoint-1] <- FALSE
-    is_recent[cutpoint:length(the_date)] <- TRUE
+    is_recent[1: cutpoint ] <- FALSE
+    is_recent[(cutpoint + 1):length(the_date)] <- TRUE
     cutdate <- min(the_date[is_recent])
     message('Recent data includes the most recent', .span, 'observations.')
   }
@@ -199,7 +200,7 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   else if (.mode == 'year' && inherits(the_date, 'POSIXct')) {
     # 365 days, 5 hours, 48 minutes, and 46 seconds
     multiplier <- 31556926  #seconds per year, on average
-    message("Annual trends based on POSIXct times may be affected by",
+    message("Annual trends based on POSIXct times may be affected by ",
             "rounding. Consider rexpressing time coordinates as R Dates.")
   }
   else {
@@ -227,7 +228,8 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   settings <- c(sample = the_sum$dims$N,
                mode = .mode,
                cor_struct = cor_struct,
-               span = .span)
+               span = .span,
+               recents = sum(is_recent, na.rm = TRUE))
 
 
   results <- list(summary = r, details = details, settings = settings)
