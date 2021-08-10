@@ -21,7 +21,7 @@ test_that("get_datums() raises error with faulty units", {
 })
 
 test_that("get_datums() raises error with faulty units", {
-  expect_error(get_datums(portland_id, .units = 'MLLW'))
+  expect_error(get_datums(portland_id, .units = 'boo'))
 })
 
 test_that("get_datums() raises error with faulty station ID", {

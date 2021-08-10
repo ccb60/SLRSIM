@@ -111,20 +111,22 @@
 #'        estimates by multiplying by 31556926 seconds / year (with a warning
 #'        about rounding error).
 #' @return
-#' A named vector, with the following components (some may be moved to
-#' attributes in the future).
-#'  \describe{
+#' A named vector, with the following components and attributes.
+#'  \describe{__Vector Components__
 #'    \item{Estimate}{The trend. Units depend on value of the `.mode` argument.
 #'    For `.mode == 'year`,  units are per year, otherwise per unit of the .dt
 #'    variable.}
-#'    \item{Std_Err}{Estimated Standard Error of the trend.  Units as above.}
-#'    \item{P_Val}{P value of the trend.  }
-#'    \item{Lower_CI}{Lower confidence interval for the }
-#'    \item{Upper_CI}{Upper confidence interval for }
-#'    \item{CI_P}{Nominal p value for the confidence intervals}
+#'    \item{Std_Err}{Standard Error of the trend.  Units as above.}
+#'    \item{P_Val}{P value of the trend.}
+#'    \item{Lower_CI}{Lower confidence interval for the estimate.}
+#'    \item{Upper_CI}{Upper confidence interval for teh estimate.}
+#'    }
+#'  \describe{__Attributes__
+#'    \item{CI_P}{Nominal p value used to generate the confidence intervals.}
 #'    \item{span}{How many calander years are represented in the data?}
-#'    \item{start}{First year included in the data}
-#'    \item{stop}{last year included in the data}
+#'    \item{start}{First year included in the data.}
+#'    \item{stop}{last year included in the data.}
+#'    \item{cor_struct}{Were parameters fit based on order or time }
 #'}
 #'
 #'@family sea level rate functions
@@ -172,7 +174,7 @@ slr_slope <- function(.data, .sl, .dt,
   else if (.mode == 'year' && inherits(the_date, 'POSIXct')) {
     # 365 days, 5 hours, 48 minutes, and 46 seconds
     multiplier <- 31556926  #seconds per year, on average
-    message("Annual trends based on POSIXct times may be affected by",
+    message("Annual trends based on POSIXct times may be affected by ",
             "rounding. Consider rexpressing time coordinates as R Dates.")
   }
   else {
@@ -210,9 +212,11 @@ slr_slope <- function(.data, .sl, .dt,
   P <-  mod_sum$`p-value`[2]
   low_CI <- EST - q_val*SE
   high_CI<- EST + q_val*SE
+  cor_struct = c('Order-based', 'Time-based')[t_fit + 1]
 
   result <- structure(c(Estimate = EST, Std_Err = SE, P_Val = P,
               Lower_CI =  low_CI, Upper_CI = high_CI), CI_P = .ci,
-              span = yearspan, start = min(year), end = max(year))
+              span = yearspan, start = min(year), end = max(year),
+              cor_struct = cor_struct)
   return(result)
 }

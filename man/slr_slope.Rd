@@ -49,20 +49,22 @@ estimates by multiplying by 31556926 seconds / year (with a warning
 about rounding error).}
 }
 \value{
-A named vector, with the following components (some may be moved to
-attributes in the future).
-\describe{
+A named vector, with the following components and attributes.
+\describe{\strong{Vector Components}
 \item{Estimate}{The trend. Units depend on value of the \code{.mode} argument.
 For \verb{.mode == 'year},  units are per year, otherwise per unit of the .dt
 variable.}
-\item{Std_Err}{Estimated Standard Error of the trend.  Units as above.}
-\item{P_Val}{P value of the trend.  }
-\item{Lower_CI}{Lower confidence interval for the }
-\item{Upper_CI}{Upper confidence interval for }
-\item{CI_P}{Nominal p value for the confidence intervals}
+\item{Std_Err}{Standard Error of the trend.  Units as above.}
+\item{P_Val}{P value of the trend.}
+\item{Lower_CI}{Lower confidence interval for the estimate.}
+\item{Upper_CI}{Upper confidence interval for teh estimate.}
+}
+\describe{\strong{Attributes}
+\item{CI_P}{Nominal p value used to generate the confidence intervals.}
 \item{span}{How many calander years are represented in the data?}
-\item{start}{First year included in the data}
-\item{stop}{last year included in the data}
+\item{start}{First year included in the data.}
+\item{stop}{last year included in the data.}
+\item{cor_struct}{Were parameters fit based on order or time }
 }
 }
 \description{
