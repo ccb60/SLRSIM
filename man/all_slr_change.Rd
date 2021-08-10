@@ -11,6 +11,7 @@ all_slr_change(
   .span = 20L,
   .interval = if (.mode == "year") 1L else NULL,
   .mode = c("year", "duration", "count"),
+  .threshold = 0.75,
   t_fit = FALSE
 )
 }
@@ -50,6 +51,18 @@ annual values by multiplying by 365.2422 days / year.  Rates based on
 estimates by multiplying by 31556926 seconds / year (with a warning
 about rounding error). No scaling is done for \code{.mode == 'time'} or
 \code{.mode == 'count'}.}
+
+\item{.threshold}{Default = 0.75.  Real number specifying how strict the
+function should be in estimating slopes for periods with missing
+values. Slopes will only be estimated for time periods with at least
+\code{.threshold} times the number of non-missing data points in the time
+period examined that has the most data points. A \code{.threshold} of 1.0
+means any period with missing values will be excluded. A \code{.threshold}
+of 0 implies that all periods with at least two dates and water level
+values (so a slope can be estimated) will be retained.  Function
+output includes information on the number of samples on which each
+slope is based, so it is possible to set .threshold = 0 and filter the
+results intelligently.}
 
 \item{t_fit}{Should the underlying generalized linear model's correlation
 structure be fit based on the time coordinate (.dt), or only on the

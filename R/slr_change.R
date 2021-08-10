@@ -91,8 +91,8 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
 
   # Ugly argument checks, since they doesn't provide nice error messages.
   stopifnot(is.data.frame(.data) | is.null(.data))
-  stopifnot(inherits(retain_model, 'logical'))
-  stopifnot(length(retain_model) == 1)
+  stopifnot(length(retain_model) == 1 && inherits(retain_model, 'logical'))
+
 
   sl_sym <- rlang::ensym(.sl)
   date_sym<- rlang::ensym(.dt)

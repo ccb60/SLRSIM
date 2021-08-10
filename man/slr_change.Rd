@@ -9,7 +9,7 @@ slr_change(
   .sl,
   .dt,
   .span = 20L,
-  .mode = c("year", "duration", "count"),
+  .mode = c("year", "time", "count"),
   t_fit = FALSE,
   retain_model = FALSE
 )
