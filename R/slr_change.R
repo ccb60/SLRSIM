@@ -43,7 +43,7 @@
 #'        "recent" period for fitting the model.  If `by_year == FALSE`, and
 #'        `.span` is an integer, it is interpreted as the number of records to
 #'        include in the 'recent' period.
-#' @param .mode one of c('year', 'time', 'count') indicating whether the .span
+#' @param .mode one of c('year', 'duration', 'count') indicating whether the .span
 #'         is expressed in years, time coordinates, or number of observations.
 #'         If `.mode == 'year'`, slopes are scaled to be expressed on a per year
 #'         basis.  Scaling requires the time coordinate to inherit from R
@@ -51,48 +51,68 @@
 #'         annual values by multiplying by 365.2422 days / year.  Rates based on
 #'         `POSIXt` objects are converted to annual values by multiplying slope
 #'         estimates by multiplying by 31556926 seconds / year (with a warning
-#'         about rounding error). No scaling is done for `.mode == 'time'` or
+#'         about rounding error). No scaling is done for `.mode == 'duration'` or
 #'         `.mode == 'count'`.
 #' @param retain_model  Boolean.  If `TRUE`, the piecewise linear model is
 #'        returned via the 'model' slot of the return value.
 #'
-#' @return a list, with the following components:
-#' \describe{
-#' \item{Sample}{Sample size on which model is based}
-#' \item{L.Ratio}{likelihood ratio comparing the piecewise linear model to a
-#'       simple linear model.}
+#' @return a list of three (optionally four) items, with the following
+#' components:
+#'
+#' \describe{__summary__ (Vector of numerical values.)
+#' \item{slope_ratio}{The ratio of the slope for the "recent" period to
+#'       the slope for the remainder of the historic record.}
+#' \item{slope_old}{The estimated slope of changes in sea level prior to the
+#'       "recent" period.}
+#' \item{slope_old_err}{Standard error of `slope_old`.}
+#' \item{slope_recent}{Estimated slope during the "Recent" period.}
+#' \item{slope_recent_err}{Standard error of `slope_recent`.}
+#' }
+#'
+#' \describe{__details__  (Vector of numerical values.)
+#' \item{l_ratio}{likelihood ratio comparing the piecewise linear model to a
+#'       linear model.}
 #' \item{p-value}{the p-value (by ANOVA) comparing the two models.}
 #' \item{delta-AIC}{Change in AIC between the two models.  A value less than
 #'       about -2 is evidence that the piecewise model would outperform the
-#'        strict linear model for "predicting" past sea levels.}
-#' \item{slope_old}{The estimated slope of changes in sea level prior to the
-#'       "recent" period specified via the .span parameter.}
-#' \item{slope_old_err}{Standard error of that slope.}
-#' \item{slope_recent}{Estimated slope during the "Recent" period,  This is
-#'       calculated as the sum of two model parameters, the overall slope and
-#'       a "recent" correction.}
-#' \item{slope_recent_err}{Standard error of the recent slope.  This is
-#'       calculated using the formula for the variance for the sum of two
-#'       uncorrelated random variables, treating the overall slope and
-#'       recent slope correction as uncorrelated.}
-#' \item{model}{The underlying piecewise GLS model, returned only if
-#'       retain_model == TRUE}
+#'       strict linear model for "predicting" past sea levels.}
+#' \item{sample}{Sample size on which model is based, including both older and
+#'       recent data.}
+#' \item{recents}{the number of samples in the "recent" time period.}
 #' }
 #'
+#' \describe{__settings__ (Vector of strings.)
+#' \item{mode}{The value of the `.mode` argument specifying how to process
+#'       the data.}
+#' \item{span}{The value of the `.span` argument, as a string, not a number. If
+#'       `.mode = 'year'`, the default, this will be the number of years in the
+#'       'recent' period. Otherwise, it will represent either a time period,
+#'       (`.mode = 'duration'`) or a number of samples (`.mode = 'count'`).}
+#' \item{cor_struct}{Either 'Order-based' (for `t_fit = FALSE`) or 'Time-based',
+#'       for `t_fit = TRUE`.}
+#' }
+#'
+#' \describe{__model__
+#' The underlying piecewise GLS model, returned only if
+#'       `retain_model = TRUE`}
+#'
 #' @family sea level rate functions
+#'
 #' @export
 #'
 #' @examples
 #'
-slr_change = function(.data, .sl, .dt, .span = 20L,
-                     .mode = c('year', 'time', 'count'),
+slr_change <- function(.data, .sl, .dt, .span = 20L,
+                     .mode = c('year', 'duration', 'count'),
                      t_fit = FALSE,
                      retain_model = FALSE) {
 
   # Ugly argument checks, since they doesn't provide nice error messages.
   stopifnot(is.data.frame(.data) | is.null(.data))
   stopifnot(length(retain_model) == 1 && inherits(retain_model, 'logical'))
-
+  stopifnot(length(.span) == 1)
+  stopifnot(is.numeric(.span) || inherits(.span, 'difftime'))
+  stopifnot(length(t_fit) == 1 && inherits(t_fit, 'logical'))
 
   sl_sym <- rlang::ensym(.sl)
   date_sym<- rlang::ensym(.dt)
@@ -102,17 +122,32 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
 
   .mode = match.arg(.mode)
 
-  # Error Checks
-  # If `by_year == TRUE` then we find a breakpoint
-  # at the beginning of the year identified by .span, otherwise, if
-  # by_year == FALSE, we check for a difftime object, and otherwise use
-  # the .span as a (negative) index into the data.
-
-  # If we got dates, or times, we can work directly with years, otherwise, we
-  # can't.
-
   have_dates <- inherits(the_date, 'Date') || inherits(the_date, 'POSIXct')
   have_diff <-  inherits(.span, 'difftime')
+
+  # # Error Checks
+  # if(.mode == 'year')
+  #   if( ! have_dates) {
+  #     stop('.mode == "year" requires .dt to be a Date or POSIX time.\n',
+  #          'You can convert integer years to dates with,
+  #          `as.Date(paste(year, "06", "15"), sep = "-")`')
+  #   }
+  # if(abs(.span - as.integer(.span)) > 0.001) {
+  #   stop('.mode == "year" requires .span to be an integer signifying the ',
+  #        "number of years in the 'recent' period.")
+  # }
+  # else if (mode == 'duration') {
+  # if ( ! inherits(.span, 'difftime')) {
+  #   stop(".mode = 'duration' requires .span to be an R  `difftime` object." )
+  # }
+  #
+  # }
+  # else if (mode == 'count') {
+  #   if(abs(.span - as.integer(.span)) > 0.001) {
+  #     stop('.mode == "count" requires .span to be an integer signifying the ',
+  #          "number of observations in the 'recent' period.")
+  #   }
+  # }
 
   # Remember that `is.integer()` checks for the storage mode, not whether the
   # parameter passed is a LOGICAL integer, which can be stored in a double.
@@ -131,7 +166,7 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
     }
   }
 
-  else if (.mode == 'time') {
+  else if (.mode == 'duration') {
     if (! inherits(.span, 'difftime')) {
       stop('If .mode == "time", .span must be a difftime object.')
     }
@@ -150,46 +185,51 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
   # but it costs little otherwise.
   sl <- sl[order(the_date)]
   the_date <- the_date[order(the_date)]
-  #browser()
-  # Actually calculate the break point.  We have three cases:  by_year == TRUE,
-  # by_year == FALSE with difftime, or by_year == FALSE with integer.
+
+  # Actually calculate the break point.  We have three cases.
   if (.mode == 'year') {
     last_year <- as.numeric(format(max(the_date), format = '%Y'))
-    cutyear <- last_year - .span - 1
+    cutyear <- last_year - .span
+    # Move to EOY, since we also include the most recent year.
+    # TODO:  add code to allow automated trimming of partial years.
     cutdate <- as.Date(paste0(cutyear, '-12-31'), format = '%Y-%m-%d')
     is_recent <- the_date > cutdate
   }
-  else if (.mode == 'time') {
+  else if (.mode == 'duration') {
     last_date <- max(the_date)
-    cutdate <- last_date - .span - 1
-    is_recent <- the_date > cutdate
+    cutdate <- last_date - .span
+    is_recent <- the_date >= cutdate
   }
-  else{
-    #browser()
+  else if (.mode == 'count') {
     is_recent <- logical(length(the_date))
     cutpoint <- length(the_date) - round(.span, 0)
     is_recent[1: cutpoint ] <- FALSE
     is_recent[(cutpoint + 1):length(the_date)] <- TRUE
     cutdate <- min(the_date[is_recent])
-    message('Recent data includes the most recent', .span, 'observations.')
+    message('Recent data includes the most recent ', .span, ' observations.')
   }
+  else {
+    stop(".mode ", .mode, "not recognized. Should be one of ",
+         "c('year', 'duration', 'count')")
+  }
+  message('The first date in the recent period is ', min(the_date[is_recent]))
+  message('The last date in the recent period is ', max(the_date[is_recent]))
 
-  message('Recent period includes data after ', cutdate)
 
   # Create date-time difference
   # We will fit a (linear) parameter to this variable, which enables
   # a modified  slope after cutdate.
-  recent_dt = if_else(is_recent, the_date - cutdate, 0)
+  recent_dt <- dplyr::if_else(is_recent, the_date - cutdate, 0)
 
   # Run the Actual Models.  We run the_gls to allow likelihood tests and compare
   # model AICs.
   the_gls <- nlme::gls(sl~the_date,
-                 correlation = corAR1(), method = 'ML')
+                 correlation = nlme::corAR1(), method = 'ML')
 
   piecewise_gls <- nlme::gls(sl ~ the_date + recent_dt,
-                       correlation = corAR1(), method = 'ML')
+                       correlation = nlme::corAR1(), method = 'ML')
 
-  the_sum <- summary(piecewise_gls)
+  #TODO:  Add code for t_fir = TRUE
   the_anova <- anova(the_gls, piecewise_gls)
 
 
@@ -207,7 +247,7 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
     multiplier <- 1
   }
 
-  # Calculate "upper" slope and its standard error
+  # Calculate "upper" slope and its standard error.
   betas <- coef(piecewise_gls)
   vcv <- vcov(piecewise_gls)
   slope_recent <- sum(betas[2:3])
@@ -215,8 +255,8 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
 
   cor_struct = c('Order-based', 'Time-based')[t_fit + 1]
   #browser()
-  r <- c (slope_old = the_sum$tTable[[2,1]] * multiplier,
-          slope_old_err = the_sum$tTable[[2,2]] * multiplier,
+  r <- c (slope_old = betas[[2]] * multiplier,
+          slope_old_err = sqrt(vcv[[2,2]]) * multiplier,
           slope_recent = slope_recent * multiplier,
           slope_recent_err = slope_recent_err * multiplier)
   r['slope_ratio'] <- r['slope_recent']/r['slope_old']
@@ -224,20 +264,17 @@ slr_change = function(.data, .sl, .dt, .span = 20L,
 
   details <- c(l_ratio = the_anova$L.Ratio[[2]],
                p_value = the_anova$`p-value`[[2]],
-               delta_AIC = the_anova$AIC[[2]] - the_anova$AIC[[1]])
-  settings <- c(sample = the_sum$dims$N,
-               mode = .mode,
-               cor_struct = cor_struct,
-               span = .span,
+               delta_AIC = the_anova$AIC[[2]] - the_anova$AIC[[1]],
+               sample = sum(! (is.na(sl) | is.na(the_date))),
                recents = sum(is_recent, na.rm = TRUE))
-
+  settings <- c(mode = .mode,
+               span = .span,
+               cor_struct = cor_struct)
 
   results <- list(summary = r, details = details, settings = settings)
   if(retain_model) {
     results[['model']] <- piecewise_gls
   }
-
-  #browser()
 
   return(results)
 }

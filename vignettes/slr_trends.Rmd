@@ -199,28 +199,48 @@ portion of the data is to be considered the "recent" portion of the data.
 This analysis is embodied in the function `slr_change()`.
 
 The piecewise linear model fits the data with two linear segments that join at a
-knot.  The easiest way to specify a knot is by the number of years in the
-"recent" period.
+knot.  The easiest way to specify the location of the knot is by the number of 
+years in the "recent" period.  
+
+With `.mode = 'year'`, the "recent" period will act as though the most recent
+year has complete data, thus including data from a partial year. The time period represented  in the recent period may thus be shorter (by months) than period
+implied by the ".span` argument.
+
+The function generates messages containing the start and ending dates of the
+recent period, to provide  ready way to check if the analysis is working as you
+expect.
 
 ```{r}
 s <- slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20, .mode = 'year')
 round(s$summary,4)
 round(s$details,4)
 s$settings
+```
 
+Currently, there is no way to automatically fit a model only to full calendar
+years, although that may change in future versions of the package.  You need to
+modify the source data yourself if that is important to you. You can do that 
+easily using the `magrittr` pipe and standard `dplyr` filters
+
+```{r}
+s <- 
+  prov_meantrend %>%
+  filter(Year < 2021) %>%
+  slr_change(MSL_mm, MidDate, .span = 20, .mode = 'year')
+round(s$summary,4)
+round(s$details,4)
+s$settings
 ```
 
 ## Alternative Time Coordinates
 The location of the knot can also be specified by a time interval (of class
-"difftime") by specifying `.mode = 'time'`.  It is inconvenient that the 
-"difftime" class does not accept time expressed in months, which is often
-going to be the units of interest.  For longer time records (over a few years),
-one can calculate the (approximate) number of days based on a number of
-intervening months by multiplying the number of months by the average number of 
-days in a month, 
+"difftime") by specifying `.mode = 'duration'`.  The "difftime" class does not
+accept time expressed in months, which is often going to be the units of
+interest.  For longer time records (over a few years), one can calculate the
+(approximate) number of days based on a number of intervening months by
+multiplying the number of months by the average number of days in a month,
 $$ Y \text{ Days} \approx X \text{ Months} \times 
 \frac{365.2422 \text{ Days per Year}}{12 \text{ Months per Year}}$$
-
 
 We demonstrate by specifying time in months -- here 240 month , which is 
 equivalent to  20 years, as before.  We do not expect results to be identical, 
@@ -228,36 +248,41 @@ as the "recent" 240 months will line up with the last observation in the data,
 not with calendar years.
 
 ```{r}
-max(prov_meantrend$MidDate)
-(our_span <- round(as.difftime(240 * (365.2422/12), units = 'days')))
+(our_span <- round(as.difftime(240 * (365.2422/12), units = 'days'))- 5)
 ```
 
 ```{r}
-s <- slr_change(prov_meantrend, MSL_mm, MidDate, 
-                .span = our_span, .mode = 'time')
+s <- 
+  prov_meantrend %>%
+  filter(Year < 2021) %>% 
+  slr_change( MSL_mm, MidDate, 
+                .span = our_span, .mode = 'duration')
 round(s$summary,4)
 round(s$details,4)
 s$settings
 
 ```
-
 Note that the slopes presented here are untransformed, so expressed in units
-of days, and need to be converted to units of interest.
+of days, and need to be converted to units of interest.  The dates included
+in the model are the same, but surprisingly, the model diagnostics are not identical.  I do not understand why. 
 
-Last, the recent period can be defiend by the number of observations in the
+{TODO:  Solve this!}
+
+Last, the recent period can be defined by the number of observations in the
 recent period by passing an integer and specifying `.mode = 'count'`.
 
 ```{r}
-s <- slr_change(prov_meantrend, MSL_mm, MidDate, 
-                .span = 240, .mode = 'count')
+s <- 
+  prov_meantrend %>%
+  filter(Year < 2021) %>% 
+  slr_change( MSL_mm, MidDate, 
+                .span = 237, .mode = 'count')
 round(s$summary,4)
 round(s$details,4)
 s$settings
 
 ```
-Note that the slopes presented here are untransformed, so expressed in units
-of days, and need to be converted to units of interest.
-
+Again, the slopes presented are untransformed, and model diagnostics are not identical.
 
 ## Examining Model Results
 It is possible, and sometimes helpful, to retain the model results for further
@@ -286,10 +311,10 @@ summary(piecewise_gls)
 ```
 
 Notice that the model parameters are untransformed, and thus expressed in 
-units per day, not per year.  hi sis likely to be especially disconcerting if 
-originl data were a POSIXct object, and thus expressed in seconds. Under those 
+units per day, not per year.  This is likely to be especially disconcerting if 
+original data were a POSIXct object, and thus expressed in seconds. Under those 
 conditions, and with the default rounding for the display of model parameters,
-it is likely the slopes will appear to be exactly zero.
+it is likely the slopes will appear to be nearly zero.
 
 {TODO: Consider changing code so that rescaling occurs before model fitting
 rather than after model fitting, to avoid this problem.}
@@ -388,7 +413,8 @@ all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20,
                .interval = 1, .mode = 'year')
 all_slopes[1:2]
 ```
-Only one of the forty nine prior twenty year (or less) periods showed a rate of sea level rise higher than the most recent period.
+Only one of the forty nine prior twenty year (or less) periods showed a rate of 
+sea level rise higher than the most recent period.
 
 Not all of the slopes are based on 20 year records, because of missing data. We should look at the details.
 
@@ -396,8 +422,8 @@ Not all of the slopes are based on 20 year records, because of missing data. We 
 all_slopes$df
 ```
 
-Notice that the first several records (1953 through 1956) span missing data, 
-and so all start on the same date (1956-09-15), but have different ending dates.
+Notice that the first several records (labeled 1953 through 1956) span missing 
+data,  and so all start on the same date (1956-09-15), but have different ending dates.
 
 The default behavior of `all_slr_change()` will report a slope for any period 
 with at least 75% of the maximum number of data points used to calculate any of
@@ -405,7 +431,6 @@ the slopes.  That behavior can be altered with the `.threshold` argument.
 
 Similarly, the final regression slope (labeled 2002) is based on partial data in
 the Year 2021 (we only have January and February data). It thus relies on almost exactly the same data as the second to last slope, labeled as 2001.
-
 
 {TODO:  Add code to filter out records that lack data for whole years, to avoid 
 this, or add warnings or a flag to the df.}

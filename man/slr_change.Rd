@@ -9,7 +9,7 @@ slr_change(
   .sl,
   .dt,
   .span = 20L,
-  .mode = c("year", "time", "count"),
+  .mode = c("year", "duration", "count"),
   t_fit = FALSE,
   retain_model = FALSE
 )
@@ -36,7 +36,7 @@ integer, and is interpreted as the number of years included in the
 \code{.span} is an integer, it is interpreted as the number of records to
 include in the 'recent' period.}
 
-\item{.mode}{one of c('year', 'time', 'count') indicating whether the .span
+\item{.mode}{one of c('year', 'duration', 'count') indicating whether the .span
 is expressed in years, time coordinates, or number of observations.
 If \code{.mode == 'year'}, slopes are scaled to be expressed on a per year
 basis.  Scaling requires the time coordinate to inherit from R
@@ -44,7 +44,7 @@ basis.  Scaling requires the time coordinate to inherit from R
 annual values by multiplying by 365.2422 days / year.  Rates based on
 \code{POSIXt} objects are converted to annual values by multiplying slope
 estimates by multiplying by 31556926 seconds / year (with a warning
-about rounding error). No scaling is done for \code{.mode == 'time'} or
+about rounding error). No scaling is done for \code{.mode == 'duration'} or
 \code{.mode == 'count'}.}
 
 \item{t_fit}{Should the underlying generalized linear model's correlation
@@ -59,28 +59,45 @@ complete data.}
 returned via the 'model' slot of the return value.}
 }
 \value{
-a list, with the following components:
-\describe{
-\item{Sample}{Sample size on which model is based}
-\item{L.Ratio}{likelihood ratio comparing the piecewise linear model to a
-simple linear model.}
+a list of three (optionally four) items, with the following
+components:
+
+\describe{\strong{summary} (Vector of numerical values.)
+\item{slope_ratio}{The ratio of the slope for the "recent" period to
+the slope for the remainder of the historic record.}
+\item{slope_old}{The estimated slope of changes in sea level prior to the
+"recent" period.}
+\item{slope_old_err}{Standard error of \code{slope_old}.}
+\item{slope_recent}{Estimated slope during the "Recent" period.}
+\item{slope_recent_err}{Standard error of \code{slope_recent}.}
+}
+
+\describe{\strong{details}  (Vector of numerical values.)
+\item{l_ratio}{likelihood ratio comparing the piecewise linear model to a
+linear model.}
 \item{p-value}{the p-value (by ANOVA) comparing the two models.}
 \item{delta-AIC}{Change in AIC between the two models.  A value less than
 about -2 is evidence that the piecewise model would outperform the
 strict linear model for "predicting" past sea levels.}
-\item{slope_old}{The estimated slope of changes in sea level prior to the
-"recent" period specified via the .span parameter.}
-\item{slope_old_err}{Standard error of that slope.}
-\item{slope_recent}{Estimated slope during the "Recent" period,  This is
-calculated as the sum of two model parameters, the overall slope and
-a "recent" correction.}
-\item{slope_recent_err}{Standard error of the recent slope.  This is
-calculated using the formula for the variance for the sum of two
-uncorrelated random variables, treating the overall slope and
-recent slope correction as uncorrelated.}
-\item{model}{The underlying piecewise GLS model, returned only if
-retain_model == TRUE}
+\item{sample}{Sample size on which model is based, including both older and
+recent data.}
+\item{recents}{the number of samples in the "recent" time period.}
 }
+
+\describe{\strong{settings} (Vector of strings.)
+\item{mode}{The value of the \code{.mode} argument specifying how to process
+the data.}
+\item{span}{The value of the \code{.span} argument, as a string, not a number. If
+\code{.mode = 'year'}, the default, this will be the number of years in the
+'recent' period. Otherwise, it will represent either a time period,
+(\code{.mode = 'duration'}) or a number of samples (\code{.mode = 'count'}).}
+\item{cor_struct}{Either 'Order-based' (for \code{t_fit = FALSE}) or 'Time-based',
+for \code{t_fit = TRUE}.}
+}
+
+\describe{\strong{model}
+The underlying piecewise GLS model, returned only if
+\code{retain_model = TRUE}}
 }
 \description{
 Fit a piecewise linear model to test whether a recent change in

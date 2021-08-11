@@ -135,12 +135,16 @@
 #' @examples
 #'
 #' prov_meantrend$MSL_mm <- prov_meantrend$MSL * 1000 (convert to mm)
+#'
 #' # Basic Usage
 #' slr_slope(prov_meantrend, MSL_mm, MidDate)
+#'
 #' # if not passed dates, the result is unscaled
 #'  slr_slope(prov_meantrend, MS_mm, unclass(MidDate))
+#'
 #' # One can also fit the model to the time coordinate explicitly
 #' slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
+#'
 slr_slope <- function(.data, .sl, .dt,
                       .ci = 0.95, t_fit = FALSE,
                       .mode = c('year', 'unscaled')) {
@@ -160,10 +164,11 @@ slr_slope <- function(.data, .sl, .dt,
   .mode = match.arg(.mode)
 
   have_dates <- inherits(the_date, c('Date','POSIXt'))
+
   if(.mode == 'year' & ! have_dates) {
-    stop('.mode == "year" requires .dt to be a Date or POSIX time.\n',
-         'You can convert integer years to dates with,
-           `as.Date(paste(year, "06", "15"), sep = "-")`')
+    stop('.mode == "year" requires .dt to be a Date or POSIXct time.\n',
+         'You can convert integer years to dates with ',
+           '`as.Date(paste(year, "06", "15"), sep = "-")`')
   }
 
   # If we got dates or times, and `.mode == 'year'`, we want to scale to years,

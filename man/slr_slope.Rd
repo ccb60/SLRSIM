@@ -152,12 +152,16 @@ multiplying by 365.242 2 (days / Dates) or 31556926 (seconds / POSIXt).
 \examples{
 
 prov_meantrend$MSL_mm <- prov_meantrend$MSL * 1000 (convert to mm)
+
 # Basic Usage
 slr_slope(prov_meantrend, MSL_mm, MidDate)
+
 # if not passed dates, the result is unscaled
  slr_slope(prov_meantrend, MS_mm, unclass(MidDate))
+
 # One can also fit the model to the time coordinate explicitly
 slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
+
 }
 \seealso{
 Other sea level rate functions: 
