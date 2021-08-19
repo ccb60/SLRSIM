@@ -41,7 +41,7 @@ include in the 'recent' period.}
 on which to calculate slopes. For \code{.mode == 'year'}, defaults to 1.
 Otherwise, must be provided.}
 
-\item{.mode}{one of c('year', 'time', 'count') indicating whether the .span
+\item{.mode}{one of c('year', 'duration', 'count') indicating whether the .span
 is expressed in years, time coordinates, or number of observations.
 If \code{.mode == 'year'}, slopes are scaled to be expressed on a per year
 basis.  Scaling requires the time coordinate to inherit from R
@@ -49,7 +49,7 @@ basis.  Scaling requires the time coordinate to inherit from R
 annual values by multiplying by 365.2422 days / year.  Rates based on
 \code{POSIXt} objects are converted to annual values by multiplying slope
 estimates by multiplying by 31556926 seconds / year (with a warning
-about rounding error). No scaling is done for \code{.mode == 'time'} or
+about rounding error). No scaling is done for \code{.mode == 'duration'} or
 \code{.mode == 'count'}.}
 
 \item{.threshold}{Default = 0.75.  Real number specifying how strict the

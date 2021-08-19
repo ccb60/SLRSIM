@@ -114,8 +114,8 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
   stopifnot(is.numeric(.span) || inherits(.span, 'difftime'))
   stopifnot(length(t_fit) == 1 && inherits(t_fit, 'logical'))
 
-  sl_sym <- rlang::ensym(.sl)
-  date_sym<- rlang::ensym(.dt)
+  sl_sym <- rlang::enquo(.sl)
+  date_sym<- rlang::enquo(.dt)
 
   sl <- rlang::eval_tidy(sl_sym, .data)
   the_date <- rlang::eval_tidy(date_sym, .data)
@@ -168,15 +168,15 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
 
   else if (.mode == 'duration') {
     if (! inherits(.span, 'difftime')) {
-      stop('If .mode == "time", .span must be a difftime object.')
+      stop('If .mode == "duration", .span must be a difftime object.')
     }
     if(! inherits(the_date, c('Date', 'POSIXct'))) {
-      stop('If .mode == "time", .dt must be either a Date or POSIXct object.')
+      stop('If .mode == "duration", .dt must be either a Date or POSIXct object.')
     }
   }
   else if (.mode == 'count') {
     if(! abs(.span - as.integer(.span)) < 0.001) {
-      stop('If .mode == "year",  .span must be an integer giving the number',
+      stop('If .mode == "count",  .span must be an integer giving the number',
            'of observations over which to calculate the recent sea level trend.')
     }
   }
@@ -208,10 +208,7 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
     cutdate <- min(the_date[is_recent])
     message('Recent data includes the most recent ', .span, ' observations.')
   }
-  else {
-    stop(".mode ", .mode, "not recognized. Should be one of ",
-         "c('year', 'duration', 'count')")
-  }
+
   message('The first date in the recent period is ', min(the_date[is_recent]))
   message('The last date in the recent period is ', max(the_date[is_recent]))
 

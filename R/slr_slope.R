@@ -155,8 +155,8 @@ slr_slope <- function(.data, .sl, .dt,
 
   # We want to be able to accept arguments as unquoted names or quoted names.
   # `ensym()`  captures only names, not expressions
-  sl_sym <- rlang::ensym(.sl)
-  date_sym<- rlang::ensym(.dt)
+  sl_sym <- rlang::enquo(.sl)
+  date_sym<- rlang::enquo(.dt)
 
   sl <- rlang::eval_tidy(sl_sym, .data)
   the_date <- rlang::eval_tidy(date_sym, .data)
