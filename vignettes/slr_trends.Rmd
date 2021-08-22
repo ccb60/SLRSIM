@@ -10,7 +10,9 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.align = 'center',
+  fig.width = 5, fig.height = 4
 )
 ```
 
@@ -25,60 +27,99 @@ library(nlme)
 library(SLRSIM)
 ```
 
-# Access Data
-Our primary source data is based on NOAA's analysis of sea level trends.  The
-description on the source web site
+# Looking up NOAA's Long Term Linear Trend Estimate
+NOAA reports estimates of the long-term rate of sea level rise for Providence, 
+Rhode Island, at 
+https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000.
+The rate and an error estimate are are shown prominently on the web page, as
+2.40 +/- 0.23 mm/year.  While the meaning of the range given is not defined, it appears to be a 95% confidence interval.
+
+The same value for Providence and for other NOAA Water Level Stations, are 
+available through an API.  `SLRSIM` includes a function to access NOAA's 
+estimates. We can extract NOAA's estimate and its standard error with `get_sl_trend()`. While the trend and related error estimate are likely to be
+of primary interest, the function also returns information about the station,
+such as its station ID and the period of record over which the trend estimate 
+is based.
+
+```{r}
+providence_id = 8454000
+sl_t <- get_sl_trend(providence_id)
+
+sl_t$trend
+sl_t$trendError
+
+names(sl_t)
+```
+NOAA's API  reports a value of 2.40 with a standard error of 0.12 mm/year.  Note
+that the standard error is half the confidence interval reported on the web
+page. That supports the idea that the range reported on the web is a 95%
+confidence interval, likely based on a normal approximation.
+
+# Related Data
+NOAA bases their long-term estimates of SLR on seasonally detrended water level data.  The source data is available manually from station web pages, but 
+apparently not through the APIs.
+
+The detrended data for Providence is provided with  `SLRSIM`, via the `prov_meantrend` dataset.  This data should be available to users by 
+name once the package is attached to the search path with `library(SLRSIM)`.
+
+The description of the source data FROM the source web site for Providence
 (https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000)
-says the following, so this is apparently NOT raw data.
+says the following.
 
 > "The plot shows the monthly mean sea level without the regular seasonal
 fluctuations due to coastal ocean temperatures, salinities, winds,
 atmospheric pressures, and ocean currents. ... The plotted values are relative
 to the most recent Mean Sea Level datum established by CO-OPS."
 
+Similar language is present on  other Stations' Sea Level trends pages. This is apparently NOT raw data.
+
+The Providence data contains a lengthy data gap that ended in the mid 195os.  We
+access the data and add an indicator variable for data before and after than
+gap. The indicator variable i used later tom make a few graphics look a bit
+cleaner.
+
 ```{r load_data}
 prov_meantrend  <- prov_meantrend %>%
   mutate(before_gap = MidDate < as.Date('1955-01-01'))
 ```
 
-# Looking up NOAA' Long Term Linear Trend Estimate
-We first demonstrate use a linear model analysis to calculate the linear trend 
-as reported by NOAA on the source web page at 
-https://tidesandcurrents.noaa.gov/sltrends/sltrends_station.shtml?id=8454000.
-
-At that site, NOAA reports NOAA reports a value of 2.40 +/- 0.23 mm/year.  While
-the meaning of the range given is not defined, it appears to be a 95% confidence 
-interval.
-
-We can extract NOAA's estimate and its standard error with `get_sl_trend()`.
-Note that these values are rounded.
 ```{r}
-providence_id = 8454000
-sl_t <- get_sl_trend(providence_id)
-sl_t$trend
-sl_t$trendError
+ggplot(prov_meantrend, aes(x = MidDate, y = MSL_mm)) +
+  geom_point() +
+  xlab('Date') +
+  ylab('Monthly Mean Sea Level (MSL, mm)')
 ```
-NOAA reports a value of 2.40 +/- 0.23 mm/year.
 
 #  A Generalized Linear Model Analysis
+We use generalized linear models to reprise the NOAA analysis.
 ```{r slr_gls}
 the_gls <- gls(MSL_mm ~ MidDate, data=prov_meantrend,
                correlation = corAR1(), method = 'ML')
 (s <- summary(the_gls))
 ```
-We need to convert units from days to years.  We can find the info we need
-either in the tTable component of the model sumamry:
+
+The slope of the line fit to these data provides a direct estimate of the
+long-term rate of sea leve lchange at Providence.  However, our time coordinate
+is of R's `Date` class, so the rate estimates are in ubits of mm per day. We
+need to (manually, here) convert that to a rate of mm per year, to match NOAA's
+analysis.
+
+We can find the info we need either in the tTable component of the GLS model
+summary:
 ```{r}
 s$tTable[2,1] * 365.2422 
 s$tTable[2,2] * 365.2422
 ```
-Or directly 
+
+Or directly by looking at model coefficients and the variance/covariance
+matrix for the model.
 ```{r}
 coef(the_gls)[2] * 365.2422
 sqrt(vcov(the_gls)[2,2]) * 365.2422
 ```
-So, we get 2.41 +/- 0.12.  If NOAA rounds the estimate only to tenths of 
-millimeters, our results match.  Otherwise, they are ever so slightly different.
+So, we get 2.41 +/- 0.12.  If NOAA rounds the estimate to tenths and error to 
+hudredths of millimeters, our results match.  Otherwise, they are ever so 
+slightly different.
 
 # The `slr_slope()` Function
 The SLR_slope function is a convenience function that wraps up the linear model 
@@ -94,20 +135,18 @@ slope_info <- slr_slope(prov_meantrend, MSL_mm, MidDate)
 print(round(slope_info[1:5],4))
 ```
 
-Some metadata is provided in attributes:
+Additional metadata about the model is provided via named attributes:
 ```{r}
-attributes(slope_info)
+attributes(slope_info)[2:6]
 ```
 
-
-
-Setting t_fit = TRUE makes the model run much more slowly, as it is fitting an
+Setting `t_fit = TRUE` makes the model run much more slowly, as it is fitting an
 autoregressive model based on the time coordinate, rather than just the sequence
 of observations.  The resulting fit is (here) not quite identical, but very 
 similar.  
 
 `t_fit == TRUE` will handle unevenly spaced observations appropriately, and may 
-be preferred if there are many missing values in the source data.  The following code takes about 30 seconds to a minute to run.
+be preferred if there are missing values in the source data.  The following code takes about 30 seconds to a minute to run.
 
 ```{r cache = TRUE}
 system.time({
@@ -118,8 +157,9 @@ print(round(slope_info[1:5],4))
 
 ## Date Time Formats
 With `.mode = 'year'`, which is the default, the time coordinate, `.dt`, must 
-be either class "Date" or "POSIXct". The last model was run on dates stores as R `Date` objects.  Here we demonstrate a model run on "POSIXct" times.  It
-produces results identical to the analysis based on Date objects.
+be either class "Date" or "POSIXct". The last model was run on dates stored as R `Date` objects.  Here we demonstrate a model run on "POSIXct" times.  It
+produces results identical to the analysis based on Date objects when run with
+`t_fit = FALSE` (with a warningabout rounding error).  `slr_slope()` correctly converts from either `Date` or `POSIXct` time coordinates to an annual basis.
 ```{r error = TRUE}
 tmp <- prov_meantrend %>%
   mutate(MidDate = as.POSIXct(MidDate))
@@ -145,7 +185,8 @@ You could, for example, create a new variable that starts at zero in January of
 1900, and increments by one each month. Using `.mode = 'unscaled'` produces an
 estimate of the long term average monthly rate of change in sea level.  Scaling
 that result to an annual basis by hand shows that the result is equivalent
-(although not quite identical) to the result when working with Dates.
+(although not quite identical) to the result when working with Dates. Since
+months are not all the same length, this is not surprising.
 
 ```{r}
 tmp <- prov_meantrend %>%
@@ -156,9 +197,9 @@ res[['Estimate']] * 12
 ```
 
 Setting `t_fit = TRUE` works for unscaled analyses too, and in this case, it
-runs somewhat faster, presumably because  `months` has one possible value
-per observation (absent missing values), making the process fo constructing
-the correlation structure faster.
+runs somewhat faster (~ 15 to 30 seconds), presumably because  `months` has one
+possible value per observation (absent missing values), making the process of
+constructing the correlation structure faster.
 
 ```{r cache = TRUE}
 tmp <- prov_meantrend %>%
@@ -179,7 +220,7 @@ If we run the same analysis on the "raw" data, we get similar, but again not
 identical, results. The most obvious change in  an increase in the estimated
 standard error.  That makes sense, as the "seasonally adjusted" data in effect
 removes one source of variability from the data. As that variability is still
-present, standard errors are a bit higher.
+present in hte raw data, standard errors are a bit higher.
 ```{r}
 slope_info_raw <- slr_slope(prov_monthly, MSL_mm, MidDate, t_fit = FALSE)
 print(round(slope_info_raw[1:5],4))
@@ -188,27 +229,26 @@ print(round(slope_info_raw[1:5],4))
 # Has Sea Level Rise Increased Recently?
 A frequent question raised in analysis of sea level records is whether the rate
 of sea level rise is increasing, as predicted by numerous climate models over
-the years. This is a simple question that is rather more complex to answer
-statistically than it at first appears.
+the years. This is a simple question that is rather more complex to answer than 
+it at first appears.
 
 The simplest approach we take to checking this idea is to fit a piece-wise
-linear model to historic water level rise data.  The user can specify a 
-"breakpoint", "cutpoint" or "knot" by giving a parameter that specifies what 
-portion of the data is to be considered the "recent" portion of the data.
+linear model to historic water level rise data. The piecewise linear model fits 
+the data with two linear segments that join at a "breakpoint", "cutpoint" or 
+"knot".  The user can provide a parameter that specifies the location of the 
+knot, and thus defile what portion of the data is to be considered the "recent" portion of the data.
 
-This analysis is embodied in the function `slr_change()`.
+This analysis is embodied in the function `slr_change()`. The easiest way to 
+specify the location of the knot is by the number of years in the "recent"
+period.  
 
-The piecewise linear model fits the data with two linear segments that join at a
-knot.  The easiest way to specify the location of the knot is by the number of 
-years in the "recent" period.  
-
-With `.mode = 'year'`, the "recent" period will act as though the most recent
-year has complete data, thus including data from a partial year. The time period represented  in the recent period may thus be shorter (by months) than period
-implied by the ".span` argument.
-
-The function generates messages containing the start and ending dates of the
-recent period, to provide  ready way to check if the analysis is working as you
-expect.
+With `.mode = 'year'`, the "recent" period will include whatever data is
+available from he most recent year.  If that year does not include 12 months of
+data, the model will be fit based data from a partial year. The time period
+represented  in the "recent" period may  be shorter (by months) than period
+implied by the `.span` argument. The function generates messages containing the
+start and ending dates of the recent period, to provide  ready way to check if
+the analysis is working as you expect.
 
 ```{r}
 s <- slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20, .mode = 'year')
@@ -220,7 +260,7 @@ s$settings
 Currently, there is no way to automatically fit a model only to full calendar
 years, although that may change in future versions of the package.  You need to
 modify the source data yourself if that is important to you. You can do that 
-easily using the `magrittr` pipe and standard `dplyr` filters
+easily using the `magrittr` pipe and standard `dplyr` filters.
 
 ```{r}
 s <- 
@@ -234,11 +274,15 @@ s$settings
 
 ## Alternative Time Coordinates
 The location of the knot can also be specified by a time interval (of class
-"difftime") by specifying `.mode = 'duration'`.  The "difftime" class does not
-accept time expressed in months, which is often going to be the units of
-interest.  For longer time records (over a few years), one can calculate the
-(approximate) number of days based on a number of intervening months by
-multiplying the number of months by the average number of days in a month,
+"difftime") by specifying `.mode = 'duration'`. 
+
+The "difftime" class does not accept time expressed in months, which is often
+going to be the units of interest.  For longer time records (over a few years),
+one can calculate the (approximate) number of days based on a number of
+intervening months by multiplying the number of months by the average number of
+days in a month. (An alternative is to create an integer value that increases by 
+one each month and fit the model to that using `mode = 'count'`)
+
 $$ Y \text{ Days} \approx X \text{ Months} \times 
 \frac{365.2422 \text{ Days per Year}}{12 \text{ Months per Year}}$$
 
@@ -263,10 +307,7 @@ s$settings
 
 ```
 Note that the slopes presented here are untransformed, so expressed in units
-of days, and need to be converted to units of interest.  The dates included
-in the model are the same, but surprisingly, the model diagnostics are not identical.  I do not understand why. 
-
-{TODO:  Solve this!}
+of days, and need to be converted to units of interest.
 
 Last, the recent period can be defined by the number of observations in the
 recent period by passing an integer and specifying `.mode = 'count'`.
@@ -286,18 +327,16 @@ Again, the slopes presented are untransformed, and model diagnostics are not ide
 
 ## Examining Model Results
 It is possible, and sometimes helpful, to retain the model results for further
-examination or processing. Because R model objects encapsulate the source data, 
-they are often quite large, so `we`slr_change()` does not return the fitted 
-model object unless specifically requested.
+examination or processing. It is often worth examining the models to make sure 
+you understand how the model was fit, review model diagnostics.  Because R model
+objects encapsulate the source data, they are often quite large, so 
+`slr_change()` does not return the fitted model object unless specifically
+requested.
 
-It is often worth examining the models to make sure you understand how the model
-was fit, review model diagnostics, etc.
-
-One circumstance in which the model object is useful is if you want to prepare
-a graphic showing the piecewise linear model.
-
-First, we re-run the model indicating that we want to fitted model object.
-We then and extract the model component, and draw a graphic.
+One circumstance in which the model object is useful is if you want to prepare a
+graphic showing the piecewise linear model. First, we re-run the model
+indicating that we want to fitted model object. We then and extract the model
+component, and draw a graphic.
 ```{r}
 s <- slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20, 
             .mode = 'year', retain_model = TRUE)
@@ -331,8 +370,8 @@ ggplot(prov_meantrend, aes(MidDate, MSL_mm, group = before_gap)) +
   ylab('Monthly Mean Tide Level (m, MSL)')
 ```
 
-## Researcher Degrees of Freedom
-While it's handy to have a function that conducts this analysis, one should not
+# Researcher Degrees of Freedom
+While it's handy to have a function that conducts that analysis, one should not
 take the stated level of statistical significance at face value.
 
 This analysis suffers both from risk of motivated reasoning and from a high 
@@ -340,13 +379,14 @@ number of "Researcher Degrees of Freedom".
 
 > Wicherts, Jelte M.; Veldkamp, Coosje L. S.; Augusteijn, Hilde E. M.; Bakker, Marjan; van Aert, Robbie C. M.; van Assen, Marcel A. L. M. (2016). Degrees of Freedom in Planning, Running, Analyzing, and Reporting Psychological Studies: A Checklist to Avoid p-Hacking. Frontiers in Psychology. 7: 1832. doi:10.3389/fpsyg.2016.01832.
 
+## Risk of Motivated Reasoning
 Interest in looking at recent rates of sea level arise from the belief,
 supported by numerous models, that anthropogenic climate change should produce
 increasing rates of sea level rise during the 21st century. Often, analysis of
-SLR during a recent period of time is motivated -- consciously, 
-unconsciously, or institutionally -- by the desire to confirm or refute the idea
-that a particular data set supports the hypothesis that rates of sea level rise
-are increasing.
+SLR during a recent period of time is motivated -- consciously, unconsciously,
+or institutionally -- by the desire to confirm or refute the idea that a
+particular data set supports the hypothesis that rates of sea level rise are
+increasing.
 
 Any time series with high autocorrelation, produces a quasi-periodic pattern. If
 one time period has high values, it is likely the next will as well.  Thus in
@@ -354,20 +394,26 @@ the presence of autocorrelation, we anticipate extended runs of above average
 values interspersed with runs of below average values.  This pattern can arise
 even in the absence of periodic drivers, and can be quite marked for data sets generated by certain ARIMA processes.
 
-That implies that simply by chance, some periods of time will have above average
-slopes, while others will have below average slopes. The most recent period may,
-again by chance, have unusually high rate of sea level rise, and attract the
-attention of an investigator.
+Simply by chance, some periods of time will show above average changes in sea
+level, while others will have below average slopes. The most recent period may,
+again by chance, have unusually high rate of sea level rise, and thus attract
+the attention of an investigator.
 
+The probability that an investigator chooses to test for, much less report
+a "change" in sea level rise is likely to be influenced by whether recent
+changes in sea level __look__ higher than usual. Under these circumstances, 
+many key assumption of frequentist statistical analysis are violated.
+
+## Who defines "Recent" anyway?
 The investigator also has several "tweaks" at their disposal that can affect the
 outcome of the analysis. Of crucial importance for periodic or quasi-periodic
 data sets, The investigator can select the data being analyzed (location of
 tidal station, starting and ending dates) and the length of the recent period 
-being analyzed (`.span`). An evil investigator bent on propoganda or obfuscation
+being analyzed (`.span`). An evil investigator bent on propaganda or obfuscation
 has significant control over the outcome of their analysis, in ways largely
 opaque to readers.  By the same token, an honest analyst can readily draw
 conclusions not strongly supported by the data, by ignoring the way apparently
-small  choices can alter the results of the analysis.
+small choices can alter the results of the analysis.
 
 There is no mathematical method to identify or account for all possible 
 researcher degrees of freedom and thus provide automated or quantitative
@@ -377,9 +423,9 @@ details of the analysis, the results should be treated with suspicion.
 
 # Is The Most Recent SLR Rate Exceptional?
 We can get a pretty good idea of whether recent rates of sea level 
-rise are higher than expected based on the historic record.  After all,
-we could look at the estimated rates of sea level rise over all or many prior 
-periods of time and compare them to recent periods of interest.
+rise are higher than expected based on the historic record.  We can look at the
+estimated rates of sea level rise over many prior periods of time and compare 
+them to our "recent" periods of interest.
 
 Another property of periodic or quasi-periodic data is that short term estimates
 of (linear) slopes (Where "short term" means `.span` is less than half the
@@ -391,66 +437,102 @@ quasi-periodic data generated through an ARIMA process.
 By chance, some short-term slopes will be "significantly" different from the long-term slopes, and yet really only reflect the fact that the short-term slope 
 was calculated on the "rising arm" of a periodic or quasi-periodic underlying pattern.
 
-Although the "recent" period of time may have a slope that is statistically 
-higher than the mean slope in the previous period of record, that may partly be 
-because we are comparing a short period to a long period.
+Although the "recent" period of time may have a slope that is statistically
+higher than the mean slope in the remainder of the period of record, that may
+partly be because we are comparing a short period to a long period.
 
 Perhaps other similar-length periods in the historic record have similar high slopes. Before we claim that recent rates of sea level rise are unusually high, 
-we should place recent rates in historical context.
+we should place those recent rates in the context of prior periods of similar
+length.
 
-The `all_slr_change()` function conducts an analysis based on that 
-idea.  It calculates rates of change in sea level for a subset of prior possible time periods, and compares the rate of change in sea level of the most recent 
-period to all prior similar time periods.
+The `all_slr_change()` function conducts an analysis based on that idea.  It
+calculates rates of change in sea level for a subset of prior possible time
+periods, and compares the rate of change in sea level of the most recent period
+to all prior similar time periods.
 
-We first look at twenty-year long periods of time (sometimes somewhat less due 
-to missing values, as shown here), starting and ending at the beginning of each
-calendar year.
+We avoid calculating something labeled a "p value", as that would suggest belief
+in an underlying statistical model. No such model exists. It would be possible
+to implement a resampling procedure to calculate a "p value" by sampling from
+all prior periods of similar length, but the strong autocorrelation in water
+levels between subsequent observations makes such a procedure of uncertain
+value.  We prefer to suggest the qualitative nature of this analysis by
+reporting only the total number of periods tested, and how many were as extreme
+or more extreme than the "recent" periodof interest.
 
-We first look at the total number of rates of SLR we estimated, and how many were 
-equal to or higher than the most recent period.
+## Demonstrating `all_slr_change()`
+We first look at twenty-year long periods of time in the data from Providence, 
+Rhode Island.  Nominally, each period starts and ends with a calendar year, but
+because of missing values, some periods end up shorter than expected.
+
 ```{r}
 all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20,
                .interval = 1, .mode = 'year')
+```
+
+The function returns a list, contianing  
+1.  The number of "historic" slopes as high or higher than the "recent" slope;  
+2.  The total number of slopes calculated (including the "recent" one); and  
+3.  A dataframe with metadata about each calculated slope.
+
+We first look at the main results.  How do prior twenty-year slopes compare to 
+the most recent twenty year slope? 
+```{r}
 all_slopes[1:2]
 ```
-Only one of the forty nine prior twenty year (or less) periods showed a rate of 
+So, only one of the forty nine prior (nominal) twenty year periods showed a rate of 
 sea level rise higher than the most recent period.
 
-Not all of the slopes are based on 20 year records, because of missing data. We should look at the details.
+Metadata about the analysis is available in two places.  The settings used in
+the function call are avaiallbe via attributes.
+```{r}
+attributes(all_slopes)[2:5]
+```
+
+
+
+But, because of missing values, not all of those slopes are based on 20 year records. We should look more closely at the details.
 
 ```{r}
 all_slopes$df
 ```
 
 Notice that the first several records (labeled 1953 through 1956) span missing 
-data,  and so all start on the same date (1956-09-15), but have different ending dates.
+data.  While they are labeled differently, the all start on the same date (1956-09-15), but have different ending dates.
 
-The default behavior of `all_slr_change()` will report a slope for any period 
+The default behavior of `all_slr_change()` will report a slope for any period
 with at least 75% of the maximum number of data points used to calculate any of
-the slopes.  That behavior can be altered with the `.threshold` argument. 
+the slopes.  So, with a 20 year `record`.span` selected, records with just over
+15 years of data will be reported.  That behavior can be altered with the
+`.threshold` argument.
 
 Similarly, the final regression slope (labeled 2002) is based on partial data in
-the Year 2021 (we only have January and February data). It thus relies on almost exactly the same data as the second to last slope, labeled as 2001.
+the Year 2021 (we only have January and February data). It thus   
+1.  does not rely on 240 monthly data points, as might be expected, and   
+2.  relies on almost exactly the same data as the second to last slope, labeled 
+    as 2001.
+    
+As for other functions in this package, if that is not the behavior you want, 
+you will need to edit the data before running the `all_slr_change()` function.
+This behavior may change in future versions of the package.  
 
-{TODO:  Add code to filter out records that lack data for whole years, to avoid 
-this, or add warnings or a flag to the df.}
-
+## Graphing Prior 20 Year Slopes
 We can get a more visceral sense of how unusual the recent period of high sea
 level rise rates are by plotting them year by year.
 ```{r}
 ggplot(all_slopes$df, aes(x = label, y = slopes)) +
   geom_line() +
   geom_point(aes(color = pvals < 0.05)) +
+  scale_color_manual(values = c('orange', 'red4'), name = 'Significant Slope?') +
   xlab('Starting Year') +
   ylab('20 Year Rate of  SLR (mm per year)')
 ```
 Since about 1977, rates of SLR have generally been close to 3.5 to 4.5 mm per
 year, with a quasi-periodic pattern. While SLR rates over the last few years 
 are the highest on record, they are not wildly out of line with prior periods 
-of especially high SLR.
+of high SLR.  If SLR is accelerating, the accelleration occured some time ago.
 
 ##  Controlling the Length Over Which to Estimate Slopes
-Perhaps those resutls are affected by the `.span` used.  You can look at shorter 
+Perhaps those results are affected by the `.span` used.  You can look at shorter 
 or longer time periods  by setting the`.span` argument.
 ```{r}
 all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 15,
@@ -459,19 +541,23 @@ all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 15,
 ggplot(all_slopes$df, aes(x = label, y = slopes)) +
   geom_line() +
   geom_point(aes(color = pvals < 0.05)) +
+  scale_color_manual(values = c('orange', 'red4'), name = 'Significant Slope?') +
   xlab('Starting Year') +
   ylab('15 Year Rate of  SLR (mm per year)')
 ```
-Over shorter periods of time, slopes vary more, and are less likely to be
-statistically significant. Notice that if you look at a 15 year `.span`,
-as here, recent slopes are not especially unusual.
+Over just slightly shorter periods of time, slopes vary mor and are less likely
+to be statistically significant,  as one would expect. Notice that if you look
+at a 15 year `.span`, as here, recent slopes do not look especially unusual.
 
-This points out how easy it is to be mislead by looking at one or two short-term slopes without putting them in longer-term context, and evaluating slightly
-different time periods.
+The contrasting results for analyzing 15 year and 20 year periods highlights the
+challenge posed by "investigator degrees of freedom" in this context. Any data
+analyst should be cautious about a conclusion that depends on what is
+essentially the arbitrary choice of whether to look at a 15 or 20 year long 
+recent period.
 
 ## Controlling the Frequency of Estimates
 Successive estimates are based on nearly the same data, and so their estimates 
-will be similar.  While it is possible to model that process explicitly, it is 
+will be similar. While it is possible to model that process explicitly, it is 
 also reasonable to just look at slopes that do not overlap so thoroughly, by
 skipping years.
 
@@ -479,18 +565,19 @@ You can request that modeled interval start less often by passing a value to the
 
 A warning: the results can be a bit confusing, since the years that start each
 interval start with the first year in the data, regardless of how that year
-relates to the length of yor `.span`.  For example, if yo uare using `.span =
+relates to the length of your `.span`.  For example, if you are using `.span =
 10`, you might want to look at years that start with zero or five. The function
-offers no way to control the starting date directly, so you need to do reshaping
-the source data.
+offers no way to control the starting date directly, so you need to handle that
+by reshaping the source data.
 
-We use the `magrittr` pipe, `%>%`,to modify the source data and make
-the starting dates for each slope line up with years ending in fives and zeros.
-The `all_slr_change()` function's first argument is a data frame, facilitating 
-this kind of pre-processing.
+We use the `magrittr` pipe, `%>%`,to modify our  source data and make the
+starting dates for each slope line up with years ending in fives and zeros. The
+`all_slr_change()` function's first argument is a data frame, facilitating this
+kind of pre-processing.
+
 ```{r}
 all_slopes <- prov_meantrend %>%
-  filter(Year >= 1940) %>% 
+  filter(Year >= 1940 & Year < 2021) %>% 
   all_slr_change(MSL_mm, MidDate, .span = 10,
                  .interval = 5, .mode = 'year')
 all_slopes$df
@@ -503,13 +590,15 @@ actually spans from 1956 through 1964.
 ggplot(all_slopes$df, aes(x = label, y = slopes)) +
   geom_line() +
   geom_point(aes(color = pvals < 0.05)) +
+  scale_color_manual(values = c('orange', 'red4'), name = 'Significant Slope?') +
   xlab('Starting Year') +
   ylab('10 Year Rate of  SLR (mm per year)')
 ```
 
-We have far fewer slopes, but the recent ones don't look especially 
-exceptional.
-
+We have far fewer slopes, and the recent ones don't look especially exceptional.
+In fact, the most recent ten year slope is not even statistically significantly different from zero -- but with only ten years in that slope, a significant
+slope requires near monotonicity, which is unlikely in an autocorrelated
+time series.
 
 ## Other Time Intervals
 Using  `.mode = 'duration'` allows you to specify `.span` and `.interval` as
@@ -522,7 +611,7 @@ Conversion to years and months can be based on the average length of a year, at
 Here we specify a roughly ten year `interval`.span` as 3650 days, and ask for a 
 new slope based on data windows spaced 180 days days apart.  Results are
 qualitatively similar to `.mode = 'year'` and `.span = 10`, as one might expect.
-Here we can see more clearly when periods of high SLR began and ended.
+Because here we can specify `.interval` of less than one year,we see more clearly when periods of high SLR began and ended.
 
 ```{r}
 all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, 
@@ -533,16 +622,51 @@ all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate,
 ggplot(all_slopes$df, aes(x = label, y = slopes)) +
   geom_line() +
   geom_point(aes(color = pvals < 0.05)) +
+  scale_color_manual(values = c('orange', 'red4'), name = 'Significant Slope?') +
   xlab('Starting Year') +
   ylab('520 Week Rate of  SLR (mm per day)')
 ```
 
-## By Number of Samples
-If you use `.mode = 'count'`, you can specify things int erms of the 
-NUMBER of observations.
-```{r error = TRUE}
-(all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, 
-                              .span = 100,
-                              .interval = 15, 
-                              .mode = 'count'))
+```{r}
+attributes(all_slopes)[2:5]
 ```
+
+## By Number of Samples
+If you use `.mode = 'count'`, you can specify things in terms of the 
+NUMBER of observations. This may come in handy if you express your time
+coordinate in time units not directly supported by `difftime`, or of you want
+to spread samples out more precisely.
+
+The following example uses a span of 200 observations -- a bit less than 18 
+years -- and generates a new slope spaced every 25 observations, or about every 
+two years.
+
+This may or may not be a smart thing to do with data (as here) that includes
+missing data, as slopes will not be defined by a duration, but by a number of
+observations.
+```{r error = TRUE}
+all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, 
+                              .span = 200,
+                              .interval = 25, 
+                              .mode = 'count')
+
+ggplot(all_slopes$df, aes(x = label, y = slopes)) +
+  geom_line() +
+  geom_point(aes(color = pvals < 0.05)) +
+  scale_color_manual(values = c('orange', 'red4'), name = 'Significant Slope?') +
+  xlab('Starting Year') +
+  ylab('520 Week Rate of  SLR (mm per day)')
+```
+Because of missing data, it is important to look at the period of record for each slope.
+```{r}
+all_slopes$df
+```
+Note that those start and end periods imply different periods of record, 
+especially over the period of missing data in the 1940s and 1950s.
+
+
+```{r}
+all_slopes[[1]]
+all_slopes[[2]]
+```
+
