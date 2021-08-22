@@ -52,6 +52,11 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
                           .threshold = 0.75,
                           t_fit = FALSE) {
 
+  # We have to figure out which argument was passed to .mode
+  # BEFORE we access .interval, so .mode has length 1 before
+  # R evaluates the default promise in the aruments list.
+  .mode = match.arg(.mode)
+
   # Ugly argument checks, since they doesn't provide nice error messages.
   stopifnot(is.data.frame(.data) | is.null(.data))
 
@@ -64,13 +69,12 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
   stopifnot(length(.threshold) == 1 && is.numeric(.threshold))
   stopifnot(length(t_fit) == 1 && inherits(t_fit, 'logical'))
 
-  sl_sym <- rlang::ensym(.sl)
-  date_sym<- rlang::ensym(.dt)
+  sl_sym <- rlang::enquo(.sl)
+  date_sym<- rlang::enquo(.dt)
 
   sl <- rlang::eval_tidy(sl_sym, .data)
   the_date <- rlang::eval_tidy(date_sym, .data)
 
-  .mode = match.arg(.mode)
 
   # Error Checks
   have_dates <- inherits(the_date, c('Date','POSIXt'))
@@ -140,12 +144,12 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
     last_year  <- max(years)
 
     # We want both the span and the interval to be rounded to whole years
-    .span      <- round(.span,0) - 1  # subtract one so we can use full years
+    .span      <- round(.span, 0)  # subtract one so we can use full years
     .interval  <- round(.interval,0)
 
     # Create "ideal" intervals.  Not that we add one to the
-    starts_ideal  <-  seq(first_year, last_year - .span, .interval)
-    ends_ideal    <-  seq(first_year + .span, last_year , .interval)
+    starts_ideal  <-  seq(first_year, last_year - (.span - 1), .interval)
+    ends_ideal    <-  seq(first_year + (.span - 1), last_year , .interval)
 
     # But we want dates / times, not years
     # for each period we want to find the first and last date that matches.
@@ -212,17 +216,26 @@ all_slr_change = function(.data, .sl, .dt, .span = 20L,
 
   }
 
-  else if(mode == 'count'){
+  else if(.mode == 'count'){
+    #browser()
     # we simply step through the record
     nsteps <- length(the_date) %/% .interval
-    starts_intervals <-  rep(se(1, nsteps), each = .interval)
+    starts_intervals <-  rep(seq(1, nsteps), each = .interval)
     # We could have a few recent observations fall off the end of the intervals
     length(starts_intervals) <- length(the_date)
-    starts_intervals[is.na(starts_intervals)] <- max(starts_intervals) + 1
+    starts_intervals[is.na(starts_intervals)] <- max(starts_intervals, na.rm = TRUE) + 1
 
     starts <- tapply(the_date, starts_intervals, min)
-    ends <- tapply(the_date, starts_intervals, max)
-    # We label with the start date
+    starts <- as.Date(starts, origin = as.Date('1970-01-01 '))
+
+    # we start by working only with sequence number in the data
+    ends <- match(starts, the_date) + .span - 1
+    # but some of our periods now run past the end of our data
+    trouble <- ends > length(the_date)
+    starts <- starts[! trouble]
+    ends   <- ends  [! trouble]
+    ends <- the_date[ends]
+
     label <- starts
   }
 
