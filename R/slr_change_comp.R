@@ -46,7 +46,7 @@
 #'
 #' @examples
 #'
-all_slr_change = function(.data, .sl, .dt, .span = 20L,
+slr_change_comp = function(.data, .sl, .dt, .span = 20L,
                           .interval = if (.mode == 'year') 1L else NULL,
                           .mode = c('year', 'duration', 'count'),
                           .threshold = 0.75,

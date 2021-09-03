@@ -37,8 +37,10 @@ get_hat(portland_id, .base = 'MLLW')   # 3.64
 }
 \seealso{
 Other station information access functions: 
+\code{\link{get_availability}()},
 \code{\link{get_datums}()},
 \code{\link{get_epoch}()},
-\code{\link{get_sl_trend}()}
+\code{\link{get_sl_trend}()},
+\code{\link{get_tz}()}
 }
 \concept{station information access functions}

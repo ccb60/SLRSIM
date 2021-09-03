@@ -84,8 +84,10 @@ get_datums(portland_id)
 }
 \seealso{
 Other station information access functions: 
+\code{\link{get_availability}()},
 \code{\link{get_epoch}()},
 \code{\link{get_hat}()},
-\code{\link{get_sl_trend}()}
+\code{\link{get_sl_trend}()},
+\code{\link{get_tz}()}
 }
 \concept{station information access functions}

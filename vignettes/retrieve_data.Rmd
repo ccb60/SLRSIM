@@ -1,0 +1,208 @@
+---
+title: "NOAA Data Access Functions"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data Access Functions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.align = 'center',
+  fig.width = 5, fig.height = 4
+)
+```
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:10px;right:50px;" />
+
+
+```{r}
+library(tidyverse)
+library(httr)      # an R equivalent to python's requests library
+library(SLRSIM)
+```
+
+
+# Introduction
+`SRLSIM` provides two main functions to access the NOAA data API and retrieve
+water level data or predicted water levels.
+
+`call_api()` is a simple wrapper around the NOAA data API, allowing you to call
+the API from R, and retrieve water level data or predictions data as a familiar 
+data frame.  Because of limitation of the NOAA API, you can request no more than
+one year's worth of data in each request.
+
+`retrieve_data()` encapsulates the logic to send multiple calls to the API and
+assemble a single larger data frame.  
+
+Both functions ONLY retrieve hourly data.  That design choice 
+reflects the purpose of SLRSIM to analyze long-term SLR records. NOAA's six
+minute data products are substantial less convenient to work with and, in our
+context, provide little benefit.
+
+1.  The API restricts downloads to monthly intervals, which complicates coding
+    for downloading long data records, since you have to keep track of the
+    length of each month, adjust for leap years, etc.  
+2.  Data collected every six minutes is even noisier and more highly 
+    autocorrelated than hourly data, complicating statistical analyses.  
+3.  Long-term data based on six minute intervals quickly consumes memory,
+    causing problems for common R workflows. And  
+3.  Older data is often only available at hourly intervals, so for SLR analysis
+    we'll often end up working with hourly data anyway.
+
+## Function `call_api()`
+This function submits a single request to the API, and is the lower-level
+workhorse function. The expectation is that users will usually call the higher
+level functions. Note that this is designed for hourly data downloaded on a calender day basis.
+
+Dates can be submitted as objects of class `Date`, or as "YYYYmmdd" or
+"mm/dd/YYYY" formatted strings. Error checking for properly formatted strings
+is minimal.  Again, since this is intended as  a low-level function, that's your
+responsibility.
+
+```{r} 
+.station    <- '8454000'  # Providence, RI
+.begin_date <- '20200801'
+.end_date   <- '20200805'
+```
+
+### Observed Data
+You specify what kind of data you want via the fourth function argument, 
+`.which`.  `.Which` can be either "observed" or "predicted".
+```{r}
+head(call_api(.station, .begin_date, .end_date, 'observed'), 20)
+```
+### Tide predictions
+Note that the name of the second data vector is "water_level" regardless of 
+which type of data you requested.  As this is intended to be a low-level access function, this should not ordinarily be a problem.
+```{r}
+a <- call_api(.station, .begin_date, .end_date, 'predicted')
+head(a,20)
+```
+A certain amount of metadata in encoded in attributes.
+```{r}
+names(attributes(a))
+```
+
+So, if you really are no longer sure whether that data frame contained 
+observations or predictions, you can check
+```{r}
+attr(a, 'which')
+```
+
+### Other Parameters
+Other function parameters allow you to specify:
+1.  A tidal datum. 
+2.  Metric versus english units.  
+3.  A "Time Format"   -- either 'gmt', 'lst', or 'lst_ldt.  
+4.  A formal timezone. 
+
+All data will be expressed relative to the selected tidal datum, in metric or english units.
+
+#### Timezones are messy
+Times will be in one of:  "Greenwich Mean Time" -- better known today as
+"Universal Time Coordinate" or UTC", local standard time, or local clock time.
+
+In practice, local clock time can be confusing, because the UTC offset shifts
+twice a year to address summer "daylight Savings Time". This leads to confusing results like dates with more than or fewer than 24 hourly observations.  It is 
+not recommended.  For most purposes, you are better of sticking with the 'gmt' default.
+
+The times returned by the NOAA API are returned as strings. This function 
+converts them to `POSIXct` objects. To handle the conversion correctly, the 
+function needs to know the timezone so that a particular string can be
+unambiguously tied to a specific UTC time.
+
+The default is to set `tz = 'UTC'`, which applies no corrections. If you
+downloaded data with `.timefmt = 'lst'`,  or `.timefmt = 'lst_ldt'`, the
+internal representation of times will be off by the (possibly changing) timezone
+offset. Unless you are going to coordinate these times with times from other
+analyses, the internal representation may not matter.
+
+See the help page for these functions
+and `?timezones` for more insight. 
+
+TODO:  Add error check to see if .tz in not missing if .timefmt is not 'gmt'.
+
+Here's what happens if yo uchose not to specify a timezone when you specify
+`.timefmt = 'lst'`.
+```{r}
+a <- call_api(.station, .begin_date, .end_date, 'observed',
+              .timefmt = 'gmt')
+b <- call_api(.station, .begin_date, .end_date, 'observed',
+              .timefmt = 'lst')
+```
+
+Since we did not specify a time zone, the text-based time returned by the API
+will be interpreted the same way by both function calls.  That means the 
+internal representations of the times will  be identical. We can drop one time
+column to simplify display.
+```{r}
+bind_cols(a[1:8,], b[1:8,2]) %>%
+  rename(gmt = water_level,
+         lst = ...3)
+```
+Note that water level values are offset by five hours, depending on which time
+coordinate you requested.  So the values in the sixth, seventh, etc slot in the
+second column (gmt) matches the first, second, etc. values in the third column
+('lst').  
+
+So, the two time coordinates can't both be right.
+
+Actually, they both WERE right, as text strings expressing the same times, but as seen from different time zones. Midnight on the U.S. East Coast is 5:00 am GMT.
+
+You can correct the internal representation by specifying a timezone.  Note that
+as a sequence of observations, the values wil lstil lbe offset by five, because 
+the API starts assembling data at midnight using whichever time coordinate you request.
+```{r}
+c <- call_api(.station, .begin_date, .end_date, 'observed',
+              .timefmt = 'lst', .tz = 'Etc/GMT+5')
+c[1:8,]
+```
+We correctly assigned a timezone now.
+```{r}
+attr(a$datetime[[1]], 'tzone')
+attr(c$datetime[[1]], 'tzone')
+```
+And we  expect the sixth observation from the data downloaded as `.timefmt = 'gmt'` and `.tx = 'UTC'` (the default) to match the first observation downloaded with
+`.timefmt = 'lst'` and `.tz = "Etc/GMT+5"'.
+```{r}
+as.numeric(a[6,])  # GMT interpreted as UTC
+as.numeric(c[1,])  # LST interpreted as "Etc/GMT+5"
+```
+
+For purposes of looking at changing sea level over a period of decades, that
+five hour offset would not matter, and if you are not cmparing these times to any other times, only the string representation os going to matterr, but it is worth knowing how to handle this right.
+
+
+## Function `retrieve_data()`
+This function marshals multiple API calls to assemble larger data sets. These
+are hourly observations, so there are 365 * 24 = 8,760 observations each year,
+with two double values (time and water level) per observation.  Even ignoring
+attributes, this means each year's data is 8,760 * 2 * 8 = 140,160 bytes or
+14 kilobytes. 100 years of data is 1.4 megabytes.  That is not large if stored
+on disk, but it's probably not a good idea to load several of these into active
+memory simultaneously.  It is likely to make R slow to a crawl.
+
+### Observations
+As with the `call_api()` function, you need the tell `retrieve_dat()` .which
+kind of data you want. 
+```{r}
+retrieve_data(.station, 2000, 2002, .which = 'observed')
+```
+### Predictions
+```{r}
+b <- retrieve_data(.station, 2000, 2002, .which = 'predicted')
+b
+```
+
+Again, the attributes contain relevant metadata.
+```{r}
+attr(b, 'which')
+```
+

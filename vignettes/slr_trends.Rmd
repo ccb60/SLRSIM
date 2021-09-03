@@ -445,7 +445,7 @@ Perhaps other similar-length periods in the historic record have similar high sl
 we should place those recent rates in the context of prior periods of similar
 length.
 
-The `all_slr_change()` function conducts an analysis based on that idea.  It
+The `slr_change_comp()` function conducts an analysis based on that idea.  It
 calculates rates of change in sea level for a subset of prior possible time
 periods, and compares the rate of change in sea level of the most recent period
 to all prior similar time periods.
@@ -459,13 +459,13 @@ value.  We prefer to suggest the qualitative nature of this analysis by
 reporting only the total number of periods tested, and how many were as extreme
 or more extreme than the "recent" periodof interest.
 
-## Demonstrating `all_slr_change()`
+## Demonstrating `slr_change_comp()`
 We first look at twenty-year long periods of time in the data from Providence, 
 Rhode Island.  Nominally, each period starts and ends with a calendar year, but
 because of missing values, some periods end up shorter than expected.
 
 ```{r}
-all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 20,
+all_slopes <- slr_change_comp(prov_meantrend, MSL_mm, MidDate, .span = 20,
                .interval = 1, .mode = 'year')
 ```
 
@@ -499,7 +499,7 @@ all_slopes$df
 Notice that the first several records (labeled 1953 through 1956) span missing 
 data.  While they are labeled differently, the all start on the same date (1956-09-15), but have different ending dates.
 
-The default behavior of `all_slr_change()` will report a slope for any period
+The default behavior of `slr_change_comp()` will report a slope for any period
 with at least 75% of the maximum number of data points used to calculate any of
 the slopes.  So, with a 20 year `record`.span` selected, records with just over
 15 years of data will be reported.  That behavior can be altered with the
@@ -512,7 +512,7 @@ the Year 2021 (we only have January and February data). It thus
     as 2001.
     
 As for other functions in this package, if that is not the behavior you want, 
-you will need to edit the data before running the `all_slr_change()` function.
+you will need to edit the data before running the `slr_change_comp()` function.
 This behavior may change in future versions of the package.  
 
 ## Graphing Prior 20 Year Slopes
@@ -535,7 +535,7 @@ of high SLR.  If SLR is accelerating, the accelleration occured some time ago.
 Perhaps those results are affected by the `.span` used.  You can look at shorter 
 or longer time periods  by setting the`.span` argument.
 ```{r}
-all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, .span = 15,
+all_slopes <- slr_change_comp(prov_meantrend, MSL_mm, MidDate, .span = 15,
                .interval = 1, .mode = 'year')
 
 ggplot(all_slopes$df, aes(x = label, y = slopes)) +
@@ -572,13 +572,13 @@ by reshaping the source data.
 
 We use the `magrittr` pipe, `%>%`,to modify our  source data and make the
 starting dates for each slope line up with years ending in fives and zeros. The
-`all_slr_change()` function's first argument is a data frame, facilitating this
+`slr_change_comp()` function's first argument is a data frame, facilitating this
 kind of pre-processing.
 
 ```{r}
 all_slopes <- prov_meantrend %>%
   filter(Year >= 1940 & Year < 2021) %>% 
-  all_slr_change(MSL_mm, MidDate, .span = 10,
+  slr_change_comp(MSL_mm, MidDate, .span = 10,
                  .interval = 5, .mode = 'year')
 all_slopes$df
 ```
@@ -614,7 +614,7 @@ qualitatively similar to `.mode = 'year'` and `.span = 10`, as one might expect.
 Because here we can specify `.interval` of less than one year,we see more clearly when periods of high SLR began and ended.
 
 ```{r}
-all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, 
+all_slopes <- slr_change_comp(prov_meantrend, MSL_mm, MidDate, 
                               .span = as.difftime(3650, units = 'days'),
                .interval = as.difftime(180, units = 'days'), 
                .mode = 'duration')
@@ -645,7 +645,7 @@ This may or may not be a smart thing to do with data (as here) that includes
 missing data, as slopes will not be defined by a duration, but by a number of
 observations.
 ```{r error = TRUE}
-all_slopes <- all_slr_change(prov_meantrend, MSL_mm, MidDate, 
+all_slopes <- slr_change_comp(prov_meantrend, MSL_mm, MidDate, 
                               .span = 200,
                               .interval = 25, 
                               .mode = 'count')

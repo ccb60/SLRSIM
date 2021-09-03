@@ -140,8 +140,8 @@ justification), see the function \code{all_sr_change()}
 }
 \seealso{
 Other sea level rate functions: 
-\code{\link{all_slr_change}()},
 \code{\link{get_sl_trend}()},
+\code{\link{slr_change_comp}()},
 \code{\link{slr_slope}()}
 }
 \concept{sea level rate functions}

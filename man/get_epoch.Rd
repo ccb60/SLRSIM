@@ -33,8 +33,10 @@ get_epoch(portland_id)   # c(start = 1983, end = 2001)
 }
 \seealso{
 Other station information access functions: 
+\code{\link{get_availability}()},
 \code{\link{get_datums}()},
 \code{\link{get_hat}()},
-\code{\link{get_sl_trend}()}
+\code{\link{get_sl_trend}()},
+\code{\link{get_tz}()}
 }
 \concept{station information access functions}

@@ -16,8 +16,6 @@
 #' @return A named list of two integers, representing the starting and ending
 #'         years of the official tidal epoch.
 #'
-
-#'
 #' @family station information access functions
 #' @export
 #'
