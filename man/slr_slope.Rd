@@ -165,8 +165,8 @@ slr_slope(prov_meantrend, MSL_mm, MidDate, t_fit = TRUE)
 }
 \seealso{
 Other sea level rate functions: 
-\code{\link{all_slr_change}()},
 \code{\link{get_sl_trend}()},
+\code{\link{slr_change_comp}()},
 \code{\link{slr_change}()}
 }
 \concept{sea level rate functions}
