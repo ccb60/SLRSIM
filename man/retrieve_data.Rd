@@ -12,8 +12,7 @@ retrieve_data(
   .datum = c("MSL", "MTL", "MHW", "MHHW", "MLLW", "MLW", "NAVD", "STND"),
   .units = c("metric", "english"),
   .timefmt = c("gmt", "lst", "lst_ldt"),
-  .tz = "UTC",
-  make_csv = FALSE
+  .tz = "UTC"
 )
 }
 \arguments{
@@ -51,10 +50,8 @@ time, as specified via \code{.timefmt = 'lst'}, the easiest way is to
 specify an offset from UTC. For example, use  'Etc/GMT+5' for the U.S.
 East Coast.  For \code{.timefmt = 'lst_ldt'} you will need to figure out
 how to define your local clock time as a time zone. For the U.S East
-COast, \code{.tz = "America/New_York"} works. See \code{?timezone}
+Coast, \code{.tz = "America/New_York"} works. See \code{?timezone}
 for more information.}
-
-\item{make_csv}{Should the function produce a SV file? (Not implemented yet)}
 }
 \value{
 A dataframe with columns "datetime" and "water_level"

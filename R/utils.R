@@ -29,9 +29,9 @@
   # Then we convert to a dataframe, change names, and convert the time to
   # POSIXct values.
   df2 <- data.frame(mat) %>%
-    transmute(datetime = as.POSIXct(t, tz = tz),
+    dplyr::transmute(datetime = as.POSIXct(t, tz = tz),
               water_level = as.numeric(v)) %>%
-    select(datetime, water_level)
+    dplyr::select(datetime, water_level)
   return(df2)
 }
 

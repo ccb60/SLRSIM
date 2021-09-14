@@ -38,11 +38,10 @@
 #'        specify an offset from UTC. For example, use  'Etc/GMT+5' for the U.S.
 #'        East Coast.  For `.timefmt = 'lst_ldt'` you will need to figure out
 #'        how to define your local clock time as a time zone. For the U.S East
-#'        COast, `.tz = "America/New_York"` works. See `?timezone`
+#'        Coast, `.tz = "America/New_York"` works. See `?timezone`
 #'        for more information.
 #' @family NOAA water level data access functions
-#' @return
-#' A dataframe with columns "datetime" and "water_level"
+#' @return A dataframe with columns "datetime" and "water_level"
 #' @export
 #' @examples
 #' Providence_station <- 8454000
@@ -59,6 +58,12 @@ call_api <- function(.station, .start, .stop,
                               .units = c('metric', 'english'),
                               .timefmt = c('gmt', 'lst', 'lst_ldt'),
                               .tz =  'UTC')  {
+
+  # TODO: Consider whether to automate selection of time zone and drop the
+  # TODO: Add code to test if .stop > .start?
+  # '.tz' parameter.   We can get the timezone with `get_tz()`
+
+
   BASE <-  'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter'
 
 
@@ -132,18 +137,16 @@ call_api <- function(.station, .start, .stop,
   } else if (.which == 'predicted') {
     parms['product'] <- 'predictions'
     parms['interval'] <- 'h'
-  } else {
-    stop('Unrecognized .which parameter. Should be "observed" or "predicted".')
   }
 
-  r <- GET(BASE, query = parms)
+  r <- httr::GET(BASE, query = parms)
   if (r$status_code == 200) {
     if ( ! 'error' %in% names(r)) {
       # We got data
       if (.which == 'observed') {
-        d <- content(r)$data
+        d <- httr::content(r)$data
       } else if (.which == 'predicted') {
-        d <- content(r)$predictions
+        d <- httr::content(r)$predictions
         #browser()
       }
       res <- .lst_2_df(d, tz = .tz)
@@ -185,7 +188,6 @@ call_api <- function(.station, .start, .stop,
 #' @inheritParams call_api
 #' @param .first_yr  Integer. First year from which to retrieve data.
 #' @param .last_yr   Integer. Last year from which to retrieve data.
-#' @param make_csv   Should the function produce a SV file? (Not implemented yet)
 #'
 #' @inherit call_api return
 #' @export
@@ -199,8 +201,10 @@ retrieve_data <- function(.station, .first_yr, .last_yr,
                                      'NAVD', 'STND'),
                           .units = c('metric', 'english'),
                           .timefmt = c('gmt', 'lst', 'lst_ldt'),
-                          .tz =  'UTC',
-                          make_csv = FALSE) {
+                          .tz =  'UTC') {
+  # TODO: Consider whether to automate selection of time zone and drop the
+  # '.tz' parameter.   We can get the timezone with `get_tz()`
+  # TODO: Add code to test if .stop > .start?
   if (missing(.which)) {
     stop('Must specify either "observed" or "predicted" values with .which.')
   }
@@ -220,8 +224,8 @@ retrieve_data <- function(.station, .first_yr, .last_yr,
   if (! is.numeric(.first_yr) || ! is.numeric(.last_yr)) {
     stop("Parameters '.first_yr' and '.last_yr' must be numeric.")
     }
-  if (! all.equal(.first_yr, as.integer(.first_yr)) ||
-      ! all.equal(.last_yr,  as.integer(.last_yr)) ) {
+  if (! .first_yr == as.integer(.first_yr) ||
+      ! .last_yr == as.integer(.last_yr)) {
     stop("Parameters '.first_yr' and '.last_yr' must be integers.")
   }
 

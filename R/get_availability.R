@@ -2,10 +2,10 @@
 #' Retrieve NOAA station details
 #'
 #' Internal utility function to retrieve data about a specific NOAA tide station
-#' from the NOAA metadata API, especially when the station was established, and
-#' its timezone offset from UTC.
+#' from the NOAA metadata API.  This is especially useful for gathering data
+#' on when the station was established, and its timezone offset from UTC.
 #'
-#' This function is called by other functions that extract specific
+#' This function is called by several other functions that extract specific
 #' subcomponents of the metadata. Users should generally call specific metadata
 #' access functions.  Every time this function is called, it triggers a new
 #' call to the NOAA API, which is wasteful of resources, but under most
@@ -67,7 +67,7 @@
 #' @return A list with two components: `$firstyr` and `$lastyr` for the year
 #'         the station was established (not  when its current configuration was
 #'         put into place) and pulled from service, respectively. If the station
-#'         is stil in service, `$lastyr` will return the current year.
+#'         is still in service, `$lastyr` will return the current year.
 #' @family station information access functions
 #' @export
 #'
@@ -132,8 +132,6 @@ get_tz <- function(.station, .type = c('offset', 'string')) {
     the_tz<- b$timezone
   } else if (.type == 'string') {
     the_tz <-paste0('Etc/GMT+', as.character(-b$timezone))
-  } else {
-    stop('Unrecognized .type requested for timezone information.')
   }
   return(the_tz)
 }

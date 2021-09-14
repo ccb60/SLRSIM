@@ -13,7 +13,7 @@ get_availability(.station)
 A list with two components: \verb{$firstyr} and \verb{$lastyr} for the year
 the station was established (not  when its current configuration was
 put into place) and pulled from service, respectively. If the station
-is stil in service, \verb{$lastyr} will return the current year.
+is still in service, \verb{$lastyr} will return the current year.
 }
 \description{
 Retrieve period of operation of a NOAA Tide Station

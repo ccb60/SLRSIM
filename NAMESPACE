@@ -2,6 +2,7 @@
 
 export(.is_timezone)
 export(.lst_2_df)
+export(build_deviations)
 export(call_api)
 export(floodcast_arima)
 export(floodcast_tub)
