@@ -7,7 +7,6 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
@@ -39,20 +38,21 @@ data frame.  Because of limitation of the NOAA API, you can request no more than
 one year's worth of data in each request.
 
 `retrieve_data()` encapsulates the logic to send multiple calls to the API and
-assemble a single larger data frame.  
+assemble a larger (multi-year) data frame.  
 
 Both functions ONLY retrieve hourly data.  That design choice 
 reflects the purpose of SLRSIM to analyze long-term SLR records. NOAA's six
-minute data products are substantial less convenient to work with and, in our
+minute data products are substantially less convenient to work with and, in our
 context, provide little benefit.
 
-1.  The API restricts downloads to monthly intervals, which complicates coding
-    for downloading long data records, since you have to keep track of the
-    length of each month, adjust for leap years, etc.  
+1.  The API restricts six-minute downloads to monthly intervals, which 
+    complicates coding for downloading long data records, since you have to keep
+    track of the length of each month, adjust for leap years, etc.
 2.  Data collected every six minutes is even noisier and more highly 
     autocorrelated than hourly data, complicating statistical analyses.  
-3.  Long-term data based on six minute intervals quickly consumes memory,
-    causing problems for common R workflows. And  
+3.  Long-term data based on six minute intervals quickly generates huge data
+    structures.  These are often large enough to pose challenges for common R
+    workflows. And  
 3.  Older data is often only available at hourly intervals, so for SLR analysis
     we'll often end up working with hourly data anyway.
 
@@ -98,39 +98,53 @@ attr(a, 'which')
 
 ### Other Parameters
 Other function parameters allow you to specify:
-1.  A tidal datum. 
-2.  Metric versus english units.  
-3.  A "Time Format"   -- either 'gmt', 'lst', or 'lst_ldt.  
-4.  A formal timezone. 
-
-All data will be expressed relative to the selected tidal datum, in metric or english units.
+1.  A tidal datum. (`.datum`)  
+2.  Metric versus english units.  (`.units`)  
+3.  A "Time Format"   (`.timefmt`) which can take on exactly three values --
+    'gmt', 'lst', or 'lst_ldt, for  "Greenwich Mean Time", local standard time, 
+    or (local) clock time, respectively.
+4.  A formal timezone. (`.tz`)
 
 #### Timezones are messy
-Times will be in one of:  "Greenwich Mean Time" -- better known today as
-"Universal Time Coordinate" or UTC", local standard time, or local clock time.
 
 In practice, local clock time can be confusing, because the UTC offset shifts
-twice a year to address summer "daylight Savings Time". This leads to confusing results like dates with more than or fewer than 24 hourly observations.  It is 
-not recommended.  For most purposes, you are better of sticking with the 'gmt' default.
+twice a year to address summer "daylight savings Time". This leads to confusing results like dates with more than or fewer than 24 hourly observations.  Thus
+for our purposes 'lst_ldt' is generally not recommended.
 
-The times returned by the NOAA API are returned as strings. This function 
-converts them to `POSIXct` objects. To handle the conversion correctly, the 
-function needs to know the timezone so that a particular string can be
-unambiguously tied to a specific UTC time.
+The times returned by the NOAA API are returned as strings. The `call_api()`
+function converts the strings  to `POSIXct` objects. To handle the conversion
+correctly, the function needs to know the timezone so that a particular string
+can be unambiguously tied to a specific UTC time.
 
-The default is to set `tz = 'UTC'`, which applies no corrections. If you
-downloaded data with `.timefmt = 'lst'`,  or `.timefmt = 'lst_ldt'`, the
+It takes TWO parameters to handle this conversion consistently, `.timefmt` and
+`.tz`.  `.timefmt` controls the times returned by the NOAA API, and `.tz`
+controls conversion from the string representation to a POSIXct object.  
+
+POSIXct objects are represented internally as an integer (number of seconds
+since the time origin) and a `tzone` attribute.  The `print()` function for
+POSIXct objects (and many other functions on POSIXct) interprets the integer in light of the timezone, and generates a string represntation.  That means the 
+same underlying TIME (integer number of seconds) can be represented by many different strings, depending on the value of the `tzone` attribute.  Or conversely, the same string can be interpreted as multiple different times, based on `.tz`.  So if you need the internal representation to be right, you need to specify a correct timezone.
+
+The defaults set `.timefmt = 'gmt'` and `.tz = 'UTC'`. For many purposes, this
+is a good choice, as it correctly records time in UTC, and creates a consistent
+internal representation. However, there are times when having times -- and dates
+-- in local time can be important.
+
+If you downloaded data with `.timefmt = 'lst'`,  or `.timefmt = 'lst_ldt'`, the
 internal representation of times will be off by the (possibly changing) timezone
-offset. Unless you are going to coordinate these times with times from other
+offset.
+
+Unless you are going to coordinate these times with times from other
 analyses, the internal representation may not matter.
 
-See the help page for these functions
-and `?timezones` for more insight. 
+See the help page for these functions and `?timezones` for more insight. 
 
 TODO:  Add error check to see if .tz in not missing if .timefmt is not 'gmt'.
 
-Here's what happens if yo uchose not to specify a timezone when you specify
+Here's what happens if you chose not to specify a timezone when you specify
 `.timefmt = 'lst'`.
+
+
 ```{r}
 a <- call_api(.station, .begin_date, .end_date, 'observed',
               .timefmt = 'gmt')
@@ -138,47 +152,51 @@ b <- call_api(.station, .begin_date, .end_date, 'observed',
               .timefmt = 'lst')
 ```
 
-Since we did not specify a time zone, the text-based time returned by the API
-will be interpreted the same way by both function calls.  That means the 
-internal representations of the times will  be identical. We can drop one time
-column to simplify display.
+The function requests data by the day.  The API returns data starting at 
+midnight.  The request based on `.timefmt = 'gmt'` starts at midnight UTC.
+The request based on `.timefmt = 'lst'` starts at midnight Eastern Standard 
+Time.  Thus the data is identical, but offset by the five hour timezone offset.
+
 ```{r}
-bind_cols(a[1:8,], b[1:8,2]) %>%
-  rename(gmt = water_level,
-         lst = ...3)
+all.equal(a[6:106, 'water_level'], b[1:101, 'water_level'])
 ```
-Note that water level values are offset by five hours, depending on which time
-coordinate you requested.  So the values in the sixth, seventh, etc slot in the
-second column (gmt) matches the first, second, etc. values in the third column
-('lst').  
 
-So, the two time coordinates can't both be right.
+Unfortunately, the function default to interpreting times as UTC, unless you specify something else with `.tz`.  It is impossible to convert a time to
+POSIXct without a timezone. If you do not specify a timezone, (e.g., by 
+passing `.tz = ''`) the function inherits the behavior of `as.POSIXct()`, and
+guesses the local time zone (from your computer's operating system).
 
-Actually, they both WERE right, as text strings expressing the same times, but as seen from different time zones. Midnight on the U.S. East Coast is 5:00 am GMT.
+The times reported for `.timefmt = 'gmt'` are correct.
+```{r}
+a[6:15, 'datetime']
+```
 
-You can correct the internal representation by specifying a timezone.  Note that
-as a sequence of observations, the values wil lstil lbe offset by five, because 
-the API starts assembling data at midnight using whichever time coordinate you request.
+But the times reported for `.timefmt = 'lst'` are confused. The strings are
+right, but the allocation to UTC is wrong, so the internal representations, are
+incorrect.
+```{r}
+b[1:10, 'datetime']
+```
+
+You can correct the internal representation by specifying a timezone.
 ```{r}
 c <- call_api(.station, .begin_date, .end_date, 'observed',
               .timefmt = 'lst', .tz = 'Etc/GMT+5')
-c[1:8,]
+c[1:8, 'datetime']
 ```
-We correctly assigned a timezone now.
+Note that the timezone shows the correct offset from UTC.
+
+We can also check that by looking at the 'tzone' attribute of the times..
 ```{r}
 attr(a$datetime[[1]], 'tzone')
 attr(c$datetime[[1]], 'tzone')
 ```
-And we  expect the sixth observation from the data downloaded as `.timefmt = 'gmt'` and `.tx = 'UTC'` (the default) to match the first observation downloaded with
-`.timefmt = 'lst'` and `.tz = "Etc/GMT+5"'.
-```{r}
-as.numeric(a[6,])  # GMT interpreted as UTC
-as.numeric(c[1,])  # LST interpreted as "Etc/GMT+5"
-```
 
 For purposes of looking at changing sea level over a period of decades, that
-five hour offset would not matter, and if you are not cmparing these times to any other times, only the string representation os going to matterr, but it is worth knowing how to handle this right.
-
+five hour offset would not matter,  Further, if you are not comparing these 
+times to any other times (say of weather records), only the string 
+representation is going to matter.  Still it is worth knowing how to handle this
+correctly.
 
 ## Function `retrieve_data()`
 This function marshals multiple API calls to assemble larger data sets. These
@@ -193,8 +211,11 @@ memory simultaneously.  It is likely to make R slow to a crawl.
 As with the `call_api()` function, you need the tell `retrieve_dat()` .which
 kind of data you want. 
 ```{r}
-retrieve_data(.station, 2000, 2002, .which = 'observed')
+.station    <- '8454000'  # Providence, RI
+a <- retrieve_data(.station, 2000, 2002, .which = 'observed')
+a
 ```
+
 ### Predictions
 ```{r}
 b <- retrieve_data(.station, 2000, 2002, .which = 'predicted')
@@ -203,6 +224,7 @@ b
 
 Again, the attributes contain relevant metadata.
 ```{r}
+attr(a, 'which')
 attr(b, 'which')
 ```
 

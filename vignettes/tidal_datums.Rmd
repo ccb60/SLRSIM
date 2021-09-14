@@ -10,7 +10,9 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.align = 'center',
+  fig.width = 5, fig.height = 4
 )
 ```
 
@@ -28,7 +30,7 @@ The SLRSIM package includes utility functions for accessing NOAA data about
 tidal monitoring stations. This vignette describes what metadata is directly 
 exposed, and how to gather further metadata about tidal monitoring stations.
 
-NOaa's tidal monitoting stations are known formally as "Water Level Observation 
+NOAA's tidal monitoring stations are known formally as "Water Level Observation 
 Network Stations."
 
 These functions are used by several functions in the package to set up analysis
@@ -44,7 +46,7 @@ https://tidesandcurrents.noaa.gov/web_services_info.html.
 Essentially all metadata accessed via these functions is also accessible
 manually from tidal station informational web pages.  The URL for each tidal 
 station's home page is readily accessed through a NOAA web page, if you know the 
-station ID of the station of interest.  Teh for mof the URL is as follows: 
+station ID of the station of interest.  The form of the URL is as follows: 
 
 ```
 https://tidesandcurrents.noaa.gov/noaatidepredictions.html?XXXXXXX
