@@ -99,14 +99,13 @@ attr(a, 'which')
 ### Other Parameters
 Other function parameters allow you to specify:
 1.  A tidal datum. (`.datum`)  
-2.  Metric versus english units.  (`.units`)  
+2.  Metric versus english units. (`.units`)
 3.  A "Time Format"   (`.timefmt`) which can take on exactly three values --
     'gmt', 'lst', or 'lst_ldt, for  "Greenwich Mean Time", local standard time, 
     or (local) clock time, respectively.
 4.  A formal timezone. (`.tz`)
 
 #### Timezones are messy
-
 In practice, local clock time can be confusing, because the UTC offset shifts
 twice a year to address summer "daylight savings Time". This leads to confusing results like dates with more than or fewer than 24 hourly observations.  Thus
 for our purposes 'lst_ldt' is generally not recommended.
@@ -143,7 +142,6 @@ TODO:  Add error check to see if .tz in not missing if .timefmt is not 'gmt'.
 
 Here's what happens if you chose not to specify a timezone when you specify
 `.timefmt = 'lst'`.
-
 
 ```{r}
 a <- call_api(.station, .begin_date, .end_date, 'observed',
@@ -186,26 +184,20 @@ c[1:8, 'datetime']
 ```
 Note that the timezone shows the correct offset from UTC.
 
-We can also check that by looking at the 'tzone' attribute of the times..
+We can also check that by looking at the 'tzone' attribute of datetime.
 ```{r}
 attr(a$datetime[[1]], 'tzone')
 attr(c$datetime[[1]], 'tzone')
 ```
 
 For purposes of looking at changing sea level over a period of decades, that
-five hour offset would not matter,  Further, if you are not comparing these 
-times to any other times (say of weather records), only the string 
+five hour offset would not matter (much). Further, if you are not comparing
+these times to other times (say of weather records), only the string
 representation is going to matter.  Still it is worth knowing how to handle this
 correctly.
 
 ## Function `retrieve_data()`
-This function marshals multiple API calls to assemble larger data sets. These
-are hourly observations, so there are 365 * 24 = 8,760 observations each year,
-with two double values (time and water level) per observation.  Even ignoring
-attributes, this means each year's data is 8,760 * 2 * 8 = 140,160 bytes or
-14 kilobytes. 100 years of data is 1.4 megabytes.  That is not large if stored
-on disk, but it's probably not a good idea to load several of these into active
-memory simultaneously.  It is likely to make R slow to a crawl.
+This function marshals multiple API calls to assemble multi-year data sets.
 
 ### Observations
 As with the `call_api()` function, you need the tell `retrieve_dat()` .which
@@ -226,5 +218,42 @@ Again, the attributes contain relevant metadata.
 ```{r}
 attr(a, 'which')
 attr(b, 'which')
+attr(b, 'station')
+attr(b, 'timefmt')
+```
+
+### Memory Issues
+We retrieve hourly observations, so there are 365 * 24 = 8,760 observations each
+year, with two double values (time and water level) per observation.  Even
+ignoring attributes, this means each year's data consumes roughly
+
+$$8,760 \text{ hours per year} \times 
+2 \text{ values per hour} \times 
+8 \text{ bytes per value} = 
+140,160 \text{ bytes per year}$$
+
+or 14 kilobytes. 100 years of data will require 1.4 megabytes. That is not large
+if stored on disk, but it's probably not a good idea to load several of these
+into active memory simultaneously.  It is likely to make R slow to a crawl.
+
+# Function `build_deviations()`
+This function pulls both observed and predicted water levels from the NOAA API,
+calculates their difference, and discards the (now redundant) predicted values. 
+These deviations are used to support modeling of future flood risk, and the 
+function is called by the `floodcast_arima()` function. Most users will never 
+need this function, but for those interested in exploring simulation
+strategies for modeling future food risk, it may come in handy.
+```{r}
+.begin_yr <- 2019
+.end_yr   <- 2020
+.station    <- '8454000'
+
+res <- build_deviations(.station,
+                        .begin_yr,
+                        .end_yr)
+```
+
+```{r}
+res
 ```
 

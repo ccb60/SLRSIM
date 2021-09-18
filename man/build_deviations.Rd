@@ -52,7 +52,10 @@ Coast, \code{.tz = "America/New_York"} works. See \code{?timezone}
 for more information.}
 }
 \value{
-A dataframe with columns "datetime" and "water_level" and "deviation"
+A dataframe with columns "datetime", "water_level" and "deviation".
+The values in "deviation" are the difference in observed and
+predicted tides. Positive values mean observed water level was higher
+than predicted.
 }
 \description{
 Retrieve data from NOAA API and calculate deviations between observed and
