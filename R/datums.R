@@ -176,7 +176,7 @@ get_datums <- function(.station, .units = 'metric'){
 #'        user-friendly map interface is available here;
 #'        https://tidesandcurrents.noaa.gov/map/index.html?type=TidePredictions.
 #' @param .units Should values be returned in metric (default) or english units?
-#' @param .base  The base datum against which to reference HAT. Defaults to MSL,
+#' @param .datum  The base datum against which to reference HAT. Defaults to MSL,
 #'        with a warning.
 #'
 #' @return A decimal value, representing the HAT value at the selected station.
@@ -187,23 +187,23 @@ get_datums <- function(.station, .units = 'metric'){
 #' # Retrieve HAT for Portland, Maine
 #' portland_id <- 8418150
 #' get_hat(portland_id)                   # 2.134, with a warning
-#' get_hat(portland_id, .base = 'MSL')    # 2.134, no warning
-#' get_hat(portland_id, .base = 'MLLW')   # 3.64
+#' get_hat(portland_id, .datum = 'MSL')    # 2.134, no warning
+#' get_hat(portland_id, .datum = 'MLLW')   # 3.64
 get_hat <- function (.station, .units = 'metric',
-                     .base = c('MSL', 'STND', 'MHHW', 'MHW', 'DTL', 'MTL', 'MLW',
+                     .datum = c('MSL', 'STND', 'MHHW', 'MHW', 'DTL', 'MTL', 'MLW',
                                'MLLW', 'NAVD88')) {
-  stopifnot(inherits(.base, 'character'))
-  if (missing(.base)) {
+  stopifnot(inherits(.datum, 'character'))
+  if (missing(.datum)) {
     warning('Base datum not specified, defaulting to MSL.\n')
   }
-  .base <- match.arg(.base)
+  .datum <- match.arg(.datum)
   # browser()
   ds <-.call_datums(.station, .units)
 
   raw_HAT = ds$HAT
   raw_datums <- ds$datums
   names(raw_datums) <- as.vector(lapply(raw_datums, function(x) x$name))
-  base_datum = raw_datums[[.base]]$value
+  base_datum = raw_datums[[.datum]]$value
 
   return(ds$HAT - base_datum)
 }

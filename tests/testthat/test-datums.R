@@ -30,20 +30,20 @@ test_that("get_datums() raises error with faulty station ID", {
 })
 
 test_that("get_hat() can retreive Portland HAT", {
-  p_hat<- get_hat(portland_id, .base = 'MLLW')
+  p_hat<- get_hat(portland_id, .datum = 'MLLW')
   expect_equal(p_hat, portland_HAT_MLLW)
 })
 
 test_that("get_hat() raises error with faulty station ID", {
-  expect_error(get_hat(-portland_id, .base = 'MLLW'))
+  expect_error(get_hat(-portland_id, .datum = 'MLLW'))
 })
 
-test_that("get_hat() raises error with faulty .base", {
-  expect_error(get_hat(portland_id, .base = 'MLLLW'))
-  expect_error(get_hat(portland_id, .base = 12345))
+test_that("get_hat() raises error with faulty .datum", {
+  expect_error(get_hat(portland_id, .datum = 'MLLLW'))
+  expect_error(get_hat(portland_id, .datum = 12345))
 })
 
-test_that("get_hat() raises warning when .base is missing.", {
+test_that("get_hat() raises warning when .datum is missing.", {
   expect_warning(get_hat(portland_id))
 })
 

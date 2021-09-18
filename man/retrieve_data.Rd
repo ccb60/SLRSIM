@@ -54,7 +54,8 @@ Coast, \code{.tz = "America/New_York"} works. See \code{?timezone}
 for more information.}
 }
 \value{
-A dataframe with columns "datetime" and "water_level"
+A dataframe with two columns: "datetime" and either "water_level" (for
+observed values) or "predicted" (for predicted tides).
 }
 \description{
 This function encapsulates calling the NOAA API to assemble a data frame

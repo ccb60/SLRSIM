@@ -157,11 +157,11 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
   if(.mode == 'year') {
     if (! have_dates) {
       stop('.mode == "year" requires .dt to be a Date or POSIXct time.\n',
-           'You can convert integer years to dates with,
-           `as.Date(paste(year, "06", "15"), sep = "-")`')
+           'You can convert integer years to dates with ',
+           '`as.Date(paste(year, "06", "15"), sep = "-")`')
     }
     else if(! abs(.span - as.integer(.span)) < 0.001) {
-      stop('If .mode == "year",  .span must be an integer giving the number',
+      stop('If .mode == "year", .span must be an integer giving the number ',
            'of years over which to calculate the recent sea level trend.')
     }
   }
@@ -176,7 +176,7 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
   }
   else if (.mode == 'count') {
     if(! abs(.span - as.integer(.span)) < 0.001) {
-      stop('If .mode == "count",  .span must be an integer giving the number',
+      stop('If .mode == "count", .span must be an integer giving the number ',
            'of observations over which to calculate the recent sea level trend.')
     }
   }
@@ -211,7 +211,6 @@ slr_change <- function(.data, .sl, .dt, .span = 20L,
 
   message('The first date in the recent period is ', min(the_date[is_recent]))
   message('The last date in the recent period is ', max(the_date[is_recent]))
-
 
   # Create date-time difference
   # We will fit a (linear) parameter to this variable, which enables

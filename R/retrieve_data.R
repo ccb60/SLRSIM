@@ -166,7 +166,6 @@ call_api <- function(.station, .start, .stop,
 
 }
 
-
 #' Retrieve hourly observed or predicted water level from the NOAA API
 #'
 #' This function encapsulates calling the NOAA API to assemble a data frame
@@ -189,7 +188,8 @@ call_api <- function(.station, .start, .stop,
 #' @param .first_yr  Integer. First year from which to retrieve data.
 #' @param .last_yr   Integer. Last year from which to retrieve data.
 #'
-#' @inherit call_api return
+#' @return A dataframe with two columns: "datetime" and either "water_level" (for
+#'        observed values) or "predicted" (for predicted tides).
 #' @export
 #'
 #' @examples
@@ -249,7 +249,7 @@ retrieve_data <- function(.station, .first_yr, .last_yr,
   out_data <- data.frame()
 
   for (year in seq(.first_yr, .last_yr, by = 1)) {
-        message (year, ' ')
+        message (year)
         begindate <- paste0(as.character(year), '0101')
         enddate <- paste0(as.character(year), '1231')
         next_data <- call_api(.station, begindate, enddate,
@@ -268,5 +268,7 @@ retrieve_data <- function(.station, .first_yr, .last_yr,
                    which = .which,
                    station = .station,
                    datum = .datum,
-                   timefmt = .timefmt))
+                   units = .units,
+                   timefmt = .timefmt,
+                   tz = .tz))
 }

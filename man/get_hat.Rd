@@ -7,7 +7,7 @@
 get_hat(
   .station,
   .units = "metric",
-  .base = c("MSL", "STND", "MHHW", "MHW", "DTL", "MTL", "MLW", "MLLW", "NAVD88")
+  .datum = c("MSL", "STND", "MHHW", "MHW", "DTL", "MTL", "MLW", "MLLW", "NAVD88")
 )
 }
 \arguments{
@@ -19,7 +19,7 @@ https://tidesandcurrents.noaa.gov/map/index.html?type=TidePredictions.}
 
 \item{.units}{Should values be returned in metric (default) or english units?}
 
-\item{.base}{The base datum against which to reference HAT. Defaults to MSL,
+\item{.datum}{The base datum against which to reference HAT. Defaults to MSL,
 with a warning.}
 }
 \value{
@@ -32,8 +32,8 @@ Retrieve the value of the Highest Astronomical Tide (HAT)
 # Retrieve HAT for Portland, Maine
 portland_id <- 8418150
 get_hat(portland_id)                   # 2.134, with a warning
-get_hat(portland_id, .base = 'MSL')    # 2.134, no warning
-get_hat(portland_id, .base = 'MLLW')   # 3.64
+get_hat(portland_id, .datum = 'MSL')    # 2.134, no warning
+get_hat(portland_id, .datum = 'MLLW')   # 3.64
 }
 \seealso{
 Other station information access functions: 
