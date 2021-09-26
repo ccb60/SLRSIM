@@ -141,13 +141,12 @@ call_api <- function(.station, .start, .stop,
 
   r <- httr::GET(BASE, query = parms)
   if (r$status_code == 200) {
-    if ( ! 'error' %in% names(r)) {
+    if ( ! 'error' %in% names(httr::content(r))) {
       # We got data
       if (.which == 'observed') {
         d <- httr::content(r)$data
       } else if (.which == 'predicted') {
         d <- httr::content(r)$predictions
-        #browser()
       }
       res <- .lst_2_df(d, tz = .tz)
       return(structure(res,
@@ -158,10 +157,13 @@ call_api <- function(.station, .start, .stop,
                        url = r$url))
     } else{
       # consider if this should be a warning or message
-      stop('API call returned status 200 but returned no data.')
+      message('API call returned status 200 but returned no data. ',
+              'Data not available for this period?')
+      return(NULL)
     }
   } else {
-    stop('API call failed with status code ', r$status_code)
+    message('API call failed with status code ', r$status_code)
+    return(NULL)
   }
 
 }

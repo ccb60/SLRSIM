@@ -1,5 +1,5 @@
 
-#' Retrieve NOAA station details
+#' Retrieve NOAA Station Details
 #'
 #' Internal utility function to retrieve data about a specific NOAA tide station
 #' from the NOAA metadata API.  This is especially useful for gathering data
@@ -12,7 +12,7 @@
 #' circumstances access time is minimal.
 #'
 #' @param .station A number or string specifying the NOAA station for which
-#'        to retreive metadata. A list of NOAA stations is available at
+#'        to retrieve metadata. A list of NOAA stations is available at
 #'        https://tidesandcurrents.noaa.gov/stations.html?type=Water+Levels. A
 #'        user-friendly map interface is available here:
 #'        https://tidesandcurrents.noaa.gov/map/index.html?type=TidePredictions.

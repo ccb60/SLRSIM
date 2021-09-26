@@ -1,5 +1,5 @@
 Package: SLRSIM
-Title: Tools to analyse sea level rise
+Title: Tools to Analyse Sea Level Rise
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Curtis",
@@ -7,23 +7,23 @@ Authors@R:
            role = c("aut", "cre"),
            email = "curtis.bohlen@maine.edu")
 Description: SLRSIM offers tools to facilitate analysis of recent sea level
-             rise trends and forecasting of future flood frequency under 
-             user-specified sea level rise scenarios. The package includes 
-             tools to access NOAA tide guage data, examine long-term trends
-             in sea leve rise, compare recent sea level rise to previous periods
-             in the data record, and forecast future flood frequency based on 
-             historical data.
+    rise trends and forecasting of future flood frequency under user-specified 
+    sea level rise scenarios. The package includes tools to access NOAA tide
+    gauge data, examine long-term trends in sea level rise, compare recent sea 
+    level rise to previous periods in the data record, and forecast future flood
+    frequency based on historical data.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Suggests: 
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
+    dplyr,
     magrittr,
     nlme,
     zoo,

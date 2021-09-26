@@ -1,6 +1,5 @@
 
-# TODO:  Complete suite of tests for bad input data
-test_that("Throws an error if first argument is not  a dataframe (or null).", {
+test_that("Throws an error if first argument is not a dataframe (or null).", {
   expect_error(slr_slope(list(date = as.Date(1:100, origin = "2021-01-01)",
                                              sl = rnorm(100)),
                               sl, date, t_fit = FALSE)))

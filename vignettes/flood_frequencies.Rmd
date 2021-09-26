@@ -1,0 +1,290 @@
+---
+title: "Predicting Frequency of Future Flood Events"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Predicting Frequency of Future Flood Events}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 5,
+  fig.height = 3
+)
+```
+
+```{r setup}
+library(tidyverse)
+library(SLRSIM)
+```
+
+# Introduction
+For most people, bare estimates of future sea level (say one foot, or one meter) 
+provide no visceral sense of the impact sea level rise may have on their lives 
+and their community. An alternative way of discussing sea level rise that
+often helps people understand what is at stake is to talk about changes to flood 
+frequencies under different sea level rise scenarios.
+
+The original motivation for developing the `SLRSIM` package was to automate the
+process of providing just such forecasts for local communities in Maine and New
+England.
+
+The reason this shift in perspective matters is because people tend to imagine
+that risks of future floods will increase more or less linearly with sea level.
+But that is not the case. Rates of flooding are much more sensitive to changes
+in average sea level than we imagine.  Even moderate sea level rise can 
+dramatically increase the frequency of flood events.
+
+`SLRSIM` provides functions to analyze past flood frequency, and two
+different approaches to estimating future flood frequencies.
+
+```{r}
+prov_tides <- prov_tides
+```
+
+
+# Looking at Past Flood Frequencies
+## floodfreq()
+We start with a simple function that calculates the daily risk of flooding and 
+and an estimate of the average number of flood events per year, based on
+an arbitrary span of historical data.  This function makes a lot of 
+assumptions, in particular, assuming data each year is "complete" in the sense 
+that the data includes water level data for any day in which it flooded, but
+it provides an excellent and fast way of summarizing past flood frequencies
+
+```{r}
+old <- prov_tides[prov_tides$Year >= 1940 & prov_tides$Year < 1950,]
+new <- prov_tides[prov_tides$Year >= 2010 & prov_tides$Year < 2020,] 
+floodfreq(old, DateTime, MLLW, 1.987)
+floodfreq(new, DateTime, MLLW, 1.987)
+```
+
+## floodmean()
+`floodmeans()` calculates the mean and variance (not SD) of flood statistics.
+We use the variance, because the number of flood events is a count variable,
+with relatively low expected value. Such data is most naturally be modeled
+either as a binomial or Poisson distribution. A Poisson distribution has a
+variance to mean ration of one.  The value is lower for a binomial distribution,
+but would be greater than one if days with flooding are clustered, being
+appreciably more abundant in some years than others.
+
+In fact, the variance is often quite close to the mean, as seen for two periods 
+of time in the Providence, RI data.
+```{r}
+(a <- floodmean(old, DateTime, MLLW, 1.987))
+(b <- floodmean(new, DateTime, MLLW, 1.987))
+rm(old, new)
+```
+We can access specific items from this matrix directly by name, or by row and 
+column indexes.
+```{r}
+a['Daily Probability','Mean']
+b[1,1]
+```
+
+## Graphing Past Flood Events by Year
+```{r}
+floodgraph(prov_tides, DateTime, MLLW, 1.987)
+```
+
+We can add a trendline, with (or without) an error band showing the standard
+error of estimate (i.e., not a prediction interval, which would be much wider).
+The trendline is based on a binomial GLM model that estimated the daily 
+probability of flooding. That estimate is then scaled (by 365.25) to produce the
+trendline.
+```{r}
+a <- floodgraph(prov_tides, DateTime, MLLW, 1.987, .fit = TRUE, .se = TRUE)
+a
+```
+For `.fit = TRUE`, we expose limited model results, via the `flood_fit`
+attribute. However, for in-depth analysis, you should extract the year-by-year 
+data using `floodcounts()` and conduct a separate analysis.
+
+The `flood_fit` attribute provides intercept and slope, with their standard 
+errors, along with the sample size (number of years) and a P value. Please
+don't take that P value too seriously.
+
+The model results are from the "behind the scenes" binomial GLM model that 
+calculates the daily probability of flooding each year. That can be confusing
+because the graphic shows a scaled version of the prediction line.
+
+1.  The behind the scenes model predicts the daily probability of flooding
+    not the number of days of flooding each year. 
+
+2.  The model is a binomial GLM with logit link, so the coefficients are
+    linear in logit (log odds) space, not in probability space.
+
+```{r}
+attr(a, 'flood_fit')
+```
+
+# Estimating Future Flood Frequencies
+`SLRSIM` provides two different approaches for forecasting future flood
+frequencies.  The first is a simple "bathtub model" that raises recently 
+observed water levels by a fixed amount, and counts up "days with 
+flooding" that would have happened if seas were that much higher. This approach 
+is quick, and readily explained to lay audiences, but it provides no way to 
+evaluate forecast uncertainty. This model is implemented
+via `floodcast_tub()`.
+
+The second approach uses ARIMA models to simulate deviations between
+predicted and observed water levels over and over. By adding those simulated
+deviations to predicted (sometimes referred to as "astronomical") tidal heights
+over a tidal epoch, we can produce hundreds or thousands simulated time series 
+series (of tidal heights) with or without adjustments for sea level rise). By
+counting up days with flooding under those simulations, we get bootstrapped 
+estimates of flood frequency and a measure of the associated uncertainty.
+
+## Key decisions before analysis
+Results of any flood forecast depends on a number of analytic choices:
+1.  What time period serves as the "source" of "historic" flood data?  Do you 
+    base analysis on a recent period of time? (If so, when?  How long?) or do 
+    you base analysis on the official "tidal epoch", which ended nearly 30 years 
+    ago?
+    
+2.  If you use the "tidal epoch", how do you adjust future estimates for the 
+    degree of sea level rise that has occurred since the middle of the tidal 
+    epoch?
+    
+3.  What is the water level above which you want to declare a "flood event"?
+    Many choices could be appropriate, depending on local circumstances.
+    In Maine, where storm surge tends to be mild, we compare water levels to the 
+    "highest astronomical tide" (HAT) datum.  Most infrastructure in our setting
+    is designed (either explicitly or because of past experience with local 
+    water levels) to avoid flooding unde conditions just slightly above the 
+    higher expected     high tides. In an area with more frequent or larger 
+    storm surges, a statistic based on frequency of past risks may be more 
+    appropriate.
+    
+## `floodcast_tub()`
+Lets look at simple flood risk forecasts based on Providence data from the most
+recent 20 years. We compare the observed flooding over the past 20 years, 
+compared to predicted flooding under 1 foot, two foot, and three foot SL R
+scenarios.
+```{r}
+prov_tides %>%
+  filter(Year >= 2001, Year <= 2020) %>% 
+  floodcast_tub(DateTime, MLLW, c(0, 0.3048, 0.6096, 0.9144), 1.987, .wl_update = 0)
+```
+
+Note that the values returned are the mean of annual values, and the standard 
+errors are the standard error of those means. .  It
+represents the standard deviation of the mean, and thus does not include
+any estimate of sampling error.
+
+We can also look up data and run the analysis in one step -- but it tends to be 
+slow because of multiple calls to the NOAA APIs. Here we look at a California
+example, Alameda, California.  (Note that Alameda does not make older hourly 
+data available, so we can't look back prior to the late 1970s using hourly data, 
+only monthly data).
+```{r}
+floodcast_tub_lookup(9414750, .slr = c(0, .30), 
+                     .fldlvl = get_hat(9414750, .datum = "MSL"))
+```
+
+
+
+
+## Tidal Prediction and the Tidal Epoch
+NOAA's tidal predictions are defined in terms of a specific 19 year long "tidal
+epoch." The astronomical alignments of sun, moon, and earth repeat (at least
+closely enough for tidal prediction) every nineteen years, and tides are
+predicted based (theoretically) on those astronomical processes. Tidal
+"Predictions" are in fact complex periodic function parameterized by "harmonic constituents" that are on fit to observed tidal elevations over the tidal epoch.
+
+For our purposes, the key insight is that tidal predictions are based on
+a nineteen year-long quasi-periodic function with no long-term trend.
+Predictions do not take into account gradual changes in sea level.
+Consequently, deviations from tidal predictions are not stationary.
+
+### Deviations were not Stationary
+During the Tidal Epoch itself, however, the average error of prediction
+should be zero (or close to zero). A close look at the data, however, often
+reveals a gradual trend in the deviations even within the tidal epoch.
+Because of gradual sea level rise, they tend to be more negative early in
+the tidal epoch, and more positive later.
+
+We can show that readily by looking at the data from Providence:
+```{r}
+(epoch <- get_epoch(8454000))
+```
+
+At Providence, the mean deviation over the tidal epoch is just two tenths of a 
+millimeter, three orders of magnitude lower than the standard deviation.
+```{r}
+epoch_data <- prov_tides %>%
+  filter(Year>=epoch['start'], Year <= epoch['end']) %>%
+  mutate(Month = factor(Month, levels = 1:12, labels = month.abb))
+mean(epoch_data$deviation)
+sd(epoch_data$deviation)
+```
+
+And there is a clear trend in deviations even during the tidal epoch.
+```{r}
+plt <- 
+  ggplot(epoch_data, aes(DateTime, deviation)) +
+  geom_point(alpha = 0.05) + geom_smooth(method = 'lm') +
+  ylim(-1,1)
+plt
+```
+Lots to see here.  First, deviations from tidal predictions have a periodic,
+more or less annual structure. (We'll look at that in a moment). Second, a 
+naive regression line shows that deviations were low (tending to be negative)
+early in the tidal epoch, and high (tending to be positive) in the later
+portion of the tidal epoch.  That's a signal of the sea level change that 
+occurred during the tidal epoch, which on most of the east coast of the United 
+States amounted to on the order of a few millimeters a year.
+
+### Side discussion: Deviations Had Seasonal Pattern
+```{r}
+ggplot(epoch_data, aes(Month, deviation)) +
+  geom_violin(fill = 'red', alpha = 0.25)
+```
+
+There is obvious seasonal variation, not so much in mean deviations (which are
+close to zero every month), but in the magnitude of the deviations.  Deviations 
+are small (closer to zero) in summer and largest in winter. 
+
+### Back to the Main Story....
+For __most__ NOAA water level stations, the current tidal epoch is
+1983-2001. That means the current tidal predictions were based on data
+collected during a nineteen year period that ended about twenty years
+ago.  To the extent that sea levels have been rising since, tidal
+predictions are likely to be biased low compared to observed sea levels
+in 2021. They are about thirty yeas out of date. (We use thirty years
+because the midpoint of the tidal epoch was 1992, or about thirty years
+ago.)
+
+A new tidal epoch -- and thus updated tidal predictions -- will be
+released by NOAA in 2025.
+
+For a __few__ tidal stations with especially rapid rates of change in sea
+level (mostly on the US Gulf Coast and Alaska), NOAA has recognized that
+tidal forecasts based on thirty year old data are not sufficiently
+accurate any more. As a result, tidal forecasts have been calibrated based
+on a more recent five year period, usually 2012 through 2016.
+
+## Should We Use the Data from the Tidal Epoch?
+Our best (unbiased) understanding of the distribution of deviations from
+(astronomical) predicted tide elevations would come from looking
+at deviations during the  tidal epoch, when deviations due to changing sea
+level are minimized.  Looking at deviations from other periods of time would
+lead to 
+
+There are disadvantages to this approach, principal among then that if storm
+intensities are not stationary, the historical deviations may have been
+generated during a period of lower intensity storms. A second problem is
+that we must find a way to adjust our SLR estimates not only for future
+changes in sea level, but also for the changes in sea level that have
+occurred over the past 30 years.
+
+
+
+`floodcast_arima()
+
+
+
+

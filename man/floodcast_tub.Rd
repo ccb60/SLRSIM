@@ -2,16 +2,116 @@
 % Please edit documentation in R/floodcast_tub.R
 \name{floodcast_tub}
 \alias{floodcast_tub}
-\title{Forecasting future coastal flood frequency using a "Bathtub" model}
+\alias{floodcast_tub_lookup}
+\title{Forecasting Coastal Flooding with a "Bathtub" Model}
 \usage{
-floodcast_tub(x, y, z)
+floodcast_tub(.data, .dt, .wl, .slr, .fldlvl, .wl_update = 0)
+
+floodcast_tub_lookup(
+  .station,
+  .slr,
+  .fldlvl,
+  .datum = c("MSL", "MTL", "MHW", "MHHW", "MLLW", "MLW", "NAVD", "STND"),
+  .wl_update = 0,
+  .use_epoch = TRUE,
+  .start_yr = NULL,
+  .end_yr = NULL,
+  .units = c("metric", "english"),
+  .timefmt = c("lst", "gmt")
+)
 }
 \arguments{
-\item{z}{}
-}
-\value{
+\item{.data}{A source data frame. can be NULL if .dt and .wl are defined
+in the enclosing environment.}
 
+\item{.dt}{Dates and times.  A data column in .data or a data vector
+defined in the enclosing environment that contains date-time
+information.  Must inherit from POSIXct.}
+
+\item{.wl}{Water level.  A numerical data column in .data or a numerical
+vector defined in the enclosing environment.}
+
+\item{.slr}{Sea level rise estimate. A numeric vector containing one or
+more values. What sea level rise scenarios should the analysis
+be based on?  Selection of appropriate sea level rise
+estimates should be based on your time horizon and risk
+tolerance. NOAA forecasts of SLR for 2100 vary from 0.3
+(almost certain) to 2.5 (highly unlikely) meters.}
+
+\item{.fldlvl}{Flood level.  A single numeric value, that defines what
+constitutes a flood event. Must be specified in
+\code{floodcast_tub()}. In \code{floodcast_tub_lookup()}, will default
+to the "Highest Astronomical Tide" elevation, or HAT for the
+selected tide station.}
+
+\item{.wl_update}{A single numeric value that adjusts for any changes in
+sea level from the tidal epoch to the present day.}
+
+\item{.station}{What NOAA water level station are you interested in?}
+
+\item{.datum}{Character string, from a limited list of options. Specifies the
+vertical datum used to express the flood elevation. To ensure
+consistency, data will be downloaded, and analysis conducted in that
+datum.}
+
+\item{.use_epoch}{Boolean.  Should analysis be based on the tidal epoch?
+Note that behavior may change on how this works with is this is set to "TRUE" for a}
+
+\item{.start_yr}{If you don't base the analysis on the period of the epoch,
+what is the first year to use for the reference period?}
+
+\item{.end_yr}{If you don't base the analysis on the period of the epoch,
+what is the last year to use for the reference period?}
+
+\item{.units}{Provide results in English (feet) or metric (meters) units?}
 }
 \description{
-Forecasting future coastal flood frequency using a "Bathtub" model
+Calculate estimated future frequency of flooding by adding a fixed "sea level
+rise offset" to past water levels, and counting up the number of days with at
+least one observation above a specified flood elevation.
 }
+\details{
+\code{floodcast_tub()} conducts the analysis based on data provided by the user.
+
+\code{floodcast_tub_lookup()}  downloads data for a station of interest and
+then conducts the analysis based on the downloaded data.
+
+The method follows an idea we were introduced to via the work of Peter
+Slovinsky, of the Maine Geological Survey.  MGS has estimated future flooding
+risk at a variety of locations around Maine by adding a fixed SLR value to
+the historical record, and showing how frequent flooding would have been if
+base sea levels had been that much higher in the past. This provides a ready,
+and readily understood, estimate of impact of SLR on frequency of flooding.
+
+Our method, while conceptually identical, is slightly different, as we count
+up the number of \strong{days} with predicted flooding, rather than hours with
+flooding. The "days" are calendar days, defined on the same timezone as the
+source datetime parameter, \code{.dt}.)
+
+There are, of course, many other metric we could use to evaluate frequency of
+future flooding, such as the number of flood events (continuous periods above
+flood elevation), or the number of tides with flooding.  We took an approach
+that focuses on days with flooding in part for computational convenience, and
+in part because it corresponds well to how communities and individuals are
+likely to experience "nuisance" tidal flooding.
+
+\code{floodcast_tub_lookup()} is a convenience function best suited for
+"quick and dirty" analysis.  It retrieves large amounts of data from
+the NOAA API (making it relatively slow) and then runs the
+calculation of future flood frequencies on that data before
+tosses all of the data away. It is generally going to be far better
+to download the data yourself, using \code{retrieve_data()}, and call
+\code{floodcast_tub()}. That way you have the data to look over
+independently, and if you want to calculate additional flood
+forecasts with different flood levels of sea level rise scenarios,
+you won't be waiting to download the data again.
+}
+\seealso{
+floodcast_arima
+
+Other Flood frequency analysis functions: 
+\code{\link{floodfreq}()},
+\code{\link{floodgraph}()},
+\code{\link{floodmean}()}
+}
+\concept{Flood frequency analysis functions}
