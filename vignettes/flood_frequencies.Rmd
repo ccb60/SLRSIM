@@ -162,7 +162,7 @@ Results of any flood forecast depends on a number of analytic choices:
 ## `floodcast_tub()`
 Lets look at simple flood risk forecasts based on Providence data from the most
 recent 20 years. We compare the observed flooding over the past 20 years, 
-compared to predicted flooding under 1 foot, two foot, and three foot SL R
+compared to predicted flooding under one foot, two foot, and three foot SL R
 scenarios.
 ```{r}
 prov_tides %>%
@@ -178,15 +178,18 @@ any estimate of sampling error.
 We can also look up data and run the analysis in one step -- but it tends to be 
 slow because of multiple calls to the NOAA APIs. Here we look at a California
 example, Alameda, California.  (Note that Alameda does not make older hourly 
-data available, so we can't look back prior to the late 1970s using hourly data, 
-only monthly data).
+data available, so we can look back prior to the late 1970s onlyvia monthly 
+data).
+
+Here, we specify that the analysis is in English units, so one foot of sea level 
+rise can be simply expressed.  Note also that we used a call to `get_hat()` to 
+set our flood elevation.
 ```{r}
-floodcast_tub_lookup(9414750, .slr = c(0, .30), 
-                     .fldlvl = get_hat(9414750, .datum = "MSL"))
+floodcast_tub_lookup(9414750, .slr = c(0, 1), .units = 'english',
+                     .fldlvl = get_hat(9414750,
+                                       .units = 'english', 
+                                       .datum = "MSL"))
 ```
-
-
-
 
 ## Tidal Prediction and the Tidal Epoch
 NOAA's tidal predictions are defined in terms of a specific 19 year long "tidal
@@ -281,9 +284,109 @@ that we must find a way to adjust our SLR estimates not only for future
 changes in sea level, but also for the changes in sea level that have
 occurred over the past 30 years.
 
+# Simulation Models
+## Model Structure of `floodcast_ar()`
+We developed simulation tools to estimate future flooding by adding
+simulated deviations to predicted tides. The primary advantage of this approach
+over the MGS analysis is that it offers the ability to estimate uncertainty 
+(although not bias) by simulating future flood events many times, and examining 
+the distribution of future flooding.
+
+The simulation model we present here does the following: 
+1.  It starts with predicted tides from the official tidal epoch (in meters).
+(As currently drafted, the simulation runs on the entire 19 year record.)
+
+2.  Adds (or not) a sea level rise value to those predicted tides.  
+
+3.  Adds a random deviation from predicted tidal elevation, where the random
+    values are drawn from a time series that has a similar autocorrelation 
+    structure to the historic deviations.  
+    
+4.  Counts up the number of days (over the simulated tidal epoch of 19 years) 
+    where the sum of prediction + SLR + deviation exceeds the flood threshold.
+    
+5.  Calculates probability of flood events per day (total floods / total days)
+    and the number of expected floods per year by multiplying that by the
+    average number of days in a year (365.25).
+    
+5.  Reruns that simulation 1000 times, and looks at properties of
+    the resulting distribution of estimated rates of flooding per year.
+
+The key step here is defining "random" deviations in a  manner that creates
+deviations with statistical properties close to those of the real deviations of
+the past.  We do that by simulating an autoregressive time series based
+on historic data. An autoregressive, or "AR" time series is a statistical model 
+used to predict values from a time series. It is a special case of a broader
+class of time series models called "ARIMA" models.  The choice of an AR model 
+rather than more complex ARIMA models is based largely on our (quite limited) 
+experience modeling historic time series of tidal deviations. These models 
+
+1.  Perform adequately, at reasonable computational cost;  
+2.  Can readily be used to simulate alternative "random" time series with
+    statistical properties similar to real tidal deviation time series;
+3.  Have properties similar to real time series of tidal deviations; and
+4.  Are flexible enough to address some of the complexity of fitting 
+    tidal time series.
+
+In a separate R Markdown document, we document the process of developing these 
+models and evaluating alternatives, based on Providence, RI data. That document
+will eventually end up either as a vignette, or as a page on a project website.
+
+## Model Options
+The AR model structure we use here can incorporate the following features:
+1.  Autocorrelation.
+
+2.  So-called "seasonal" autocorrelation over moderate periods of time,
+    typically tied to one tidal cycle or one tidal day. Since the data we use
+    from NOAA is reported hourly, we can not fit ~ 12.45 hour tidal cycles
+    exactly, so by default the models look at correlation over a 25 observation
+    / 25 hour period, which is very close to the "true" ~ 24.85 lunar day.
+    
+3.  Long-term trends in sea level rise.  Trends can be modeled either as a term
+    in the simulation (which improves accuracy of ARIMA models), or added
+    after simulation, (which simplifies model set up and interpretation). 
+    
+4.  Annual cycles.  Annual cycles are fit via weighted sums of sine and cosine
+    functions that form a fourier series approximation to annual patterns.
+    Given the noisiness of teh underlying tidal data, it seldom makes sense to
+    fit more than one or two fourier components.
+    
+We chose not to fit fourier series calculated on the basis of days or tidal
+days.  Those terms tend to be both small (amounting to a few millimeters)
+and would greatly complicate simulation, as simulated deviations would have to 
+be precisely aligned with real tidal cycles.
+
+## Model Weaknesses
+(Note this is a model, not reality, so we need to evaluate what it does well and 
+not so well.  Here are some initial thoughts.
+
+1.  These models do a reasonable, but not excellent job of picking up temporal
+    autocorrelation structure of the data.  Examination of residuals 
+    often shows moderate persistent autocorrelation, well above thresholds for
+    statistical "significance" -- whatever that means in a model based on tens 
+    or hundreds of thousands of observations.  While the pattern is
+    often reminiscent of white noise, there are sometimes peaks in the 
+    correlograms to about r ~ 0.2, at tidal frequencies (12/13/25 hours) and 
+    their multiples.
+
+2.  These models reflect seasonal changes in mean deviation, but do not 
+    model seasonal changes in the variance of tidal deviations.  Often
+    winter weather is more extreme, so variations from tidal predictions -- both 
+    positive and negative -- are larger in winter.
+    
+3. The AR models tend to underestimate the skewness and kurtosis of real 
+   distributions. The result is, these models tend to underestimate the 
+   frequency of very rare extreme events. Thus they tend to offer conservative 
+   estimates of flood frequency, and are better suited to modeling moderate
+   floods frequencies than extreme flood frequencies.
+   
+
+## Example Simulations
+```{r}
+
+```
 
 
-`floodcast_arima()
 
 
 

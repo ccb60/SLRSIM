@@ -48,6 +48,7 @@ floodmean(new, DateTime, MLLW, 1.987)
 }
 \seealso{
 Other Flood frequency analysis functions: 
+\code{\link{.sim_once}()},
 \code{\link{floodcast_tub}()},
 \code{\link{floodfreq}()},
 \code{\link{floodgraph}()}

@@ -110,6 +110,7 @@ you won't be waiting to download the data again.
 floodcast_arima
 
 Other Flood frequency analysis functions: 
+\code{\link{.sim_once}()},
 \code{\link{floodfreq}()},
 \code{\link{floodgraph}()},
 \code{\link{floodmean}()}

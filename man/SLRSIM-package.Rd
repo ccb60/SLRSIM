@@ -6,12 +6,7 @@
 \alias{SLRSIM-package}
 \title{SLRSIM: Tools to Analyse Sea Level Rise}
 \description{
-SLRSIM offers tools to facilitate analysis of recent sea level
-    rise trends and forecasting of future flood frequency under user-specified 
-    sea level rise scenarios. The package includes tools to access NOAA tide
-    gauge data, examine long-term trends in sea level rise, compare recent sea 
-    level rise to previous periods in the data record, and forecast future flood
-    frequency based on historical data.
+SLRSIM offers tools to facilitate analysis of recent sea level rise trends and forecasting of future flood frequency under user-specified sea level rise scenarios. The package includes tools to access NOAA tide gauge data, examine long-term trends in sea level rise, compare recent sea level rise to previous periods in the data record, and forecast future flood frequency based on historical data.
 }
 \details{
 The Package originated in code developed for the 2020/2021 State of Casco

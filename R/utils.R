@@ -55,3 +55,32 @@
   return(.timezone %in% (OlsonNames()))
 }
 
+
+#' Check if a value is (close to) an Integer
+#'
+#' Function is based on the code provided as an example for the function
+#' `base::is.integer()` (which does NOT do what you might expect).
+#' @param .x   Value or numerical vector to check
+#' @param .tol The tolerance.  How close to an integer do you want to count as an
+#'            integer?  Default value is related to precision of floats, and
+#'            thus depends on the computer and specific R installation.  The
+#'            default may be far too precise for many use cases, where you want
+#'            to accept numbers somewhat close to an integer value.
+#'
+#' @return Boolean (`TRUE` or `FALSE`) vector, with length matching the
+#'         length of `.x`.
+#' @export
+#'
+#' @examples
+#' .is_whole(4)
+#' .is_whole(4.2)
+#' .is.wholer(4.2, .tol = 0.25)
+.is_whole <- function(.x, .tol = .Machine$double.eps^0.5) {
+  if (! missing(.tol)) {
+    stopifnot(length(.tol) == 1 && is.numeric(.tol))
+  }
+  stopifnot(is.numeric(.x))
+
+  abs(.x - round(.x)) < .tol
+}
+

@@ -69,6 +69,7 @@ customization
 }
 \seealso{
 Other Flood frequency analysis functions: 
+\code{\link{.sim_once}()},
 \code{\link{floodcast_tub}()},
 \code{\link{floodfreq}()},
 \code{\link{floodmean}()}
